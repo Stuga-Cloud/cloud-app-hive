@@ -1,0 +1,11 @@
+FROM golang:1.18-alpine AS builder
+
+WORKDIR /app
+
+COPY . .
+RUN go mod download
+
+
+RUN go install github.com/githubnemo/CompileDaemon
+
+CMD CompileDaemon -build="go build -o main" -command="./main"

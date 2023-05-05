@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      target: builder
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - PORT=${PORT}
+      - API_KEY=${API_KEY}
+      - USE_SSH=${USE_SSH}
+      - SERVER_HOST_SSH_USER=${SERVER_HOST_SSH_USER}
+      - SERVER_HOST_SSH_PORT=${SERVER_HOST_SSH_PORT}
+      - SERVER_HOST_SSH_PRIVATE_KEY_PATH=${SERVER_HOST_SSH_PRIVATE_KEY_PATH}
+      - REMOTE_SERVER_URL=${REMOTE_SERVER_URL}
+      - KUBERNETES_API_USERNAME=${KUBERNETES_API_USERNAME}
+      - KUBERNETES_API_PASSWORD=${KUBERNETES_API_PASSWORD}
+      - KUBECONFIG_PATH=${KUBECONFIG_PATH}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
