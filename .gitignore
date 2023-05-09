@@ -2,3 +2,4 @@
 main
 mysql/data
 .idea
+assets/kubeconfig
