@@ -7,7 +7,6 @@ import (
 	"cloud-app-hive/use_cases/applications"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator"
 	"net/http"
 	"os"
 )
@@ -18,23 +17,8 @@ type ApiError struct {
 	Message string
 }
 
-func msgForTag(fe validator.FieldError) string {
-	switch fe.Tag() {
-	case "required":
-		return "This field is required"
-	case "min":
-		return fmt.Sprintf("Minimum length is %s", fe.Param())
-	case "max":
-		return fmt.Sprintf("Maximum length is %s", fe.Param())
-	case "email":
-		return "Invalid email address"
-	default:
-		return "Invalid input - " + fe.Tag()
-	}
-}
 func CreateAndDeployApplicationController(c *gin.Context) {
 	authHeader := c.Request.Header.Get("Authorization")
-
 	if authHeader != "Bearer "+os.Getenv("API_KEY") {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
@@ -54,7 +38,6 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 		return
 	}
 
-	// TODO -> Deploy application
 	deployApplicationUseCase := applications.DeployApplicationUseCase{
 		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
 	}
@@ -69,7 +52,7 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 		ContainerSpecifications:   domain.ApplicationContainerSpecifications{},
 		ScalabilitySpecifications: domain.ApplicationScalabilitySpecifications{},
 	}
-	output, err := deployApplicationUseCase.Execute(deployApplication)
+	err = deployApplicationUseCase.Execute(deployApplication)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error while deploying": err.Error()})
 		return
@@ -84,37 +67,34 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":  fmt.Sprintf("App %s deployed", application.Name),
-		"output":   output,
-		"cpuUsage": 0,
-		"ramUsage": 0,
-		"time":     0,
+		"message": fmt.Sprintf("App %s deployed", application.Name),
 	})
 }
 
 // GetMetricsByApplicationNameAndNamespaceController returns the metrics of an application by name and namespace in query params
 func GetMetricsByApplicationNameAndNamespaceController(c *gin.Context) {
 	authHeader := c.Request.Header.Get("Authorization")
-
 	if authHeader != "Bearer "+os.Getenv("API_KEY") {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
-	appNamespace := c.Param("namespace")
-	appName := c.Param("name")
-	if appNamespace == "" || appName == "" {
+	applicationNamespace := c.Param("namespace")
+	applicationName := c.Param("name")
+	if applicationNamespace == "" || applicationName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Namespace and name must be provided"})
 		return
 	}
-	println("APP NAME: " + appName)
-	println("APP NAMESPACE: " + appNamespace)
 
 	// TODO -> Get metrics from kubernetes
 	getMetricsByApplicationNameAndNamespaceUseCase := applications.GetApplicationMetricsUseCase{
 		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
 	}
-	metrics, err := getMetricsByApplicationNameAndNamespaceUseCase.Execute(appName, appNamespace)
+	application := domain.GetApplicationMetrics{
+		Name:      applicationName,
+		Namespace: applicationNamespace,
+	}
+	metrics, err := getMetricsByApplicationNameAndNamespaceUseCase.Execute(application)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error while getting metrics": err.Error()})
 		return
@@ -122,5 +102,39 @@ func GetMetricsByApplicationNameAndNamespaceController(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"metrics": metrics,
+	})
+}
+
+// GetLogsByApplicationNameAndNamespaceController returns the logs of an application by name and namespace in query params
+func GetLogsByApplicationNameAndNamespaceController(c *gin.Context) {
+	authHeader := c.Request.Header.Get("Authorization")
+	if authHeader != "Bearer "+os.Getenv("API_KEY") {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	applicationNamespace := c.Param("namespace")
+	applicationName := c.Param("name")
+	if applicationNamespace == "" || applicationName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Namespace and name must be provided"})
+		return
+	}
+
+	// TODO -> Get logs from kubernetes
+	getLogsByApplicationNameAndNamespaceUseCase := applications.GetApplicationLogsUseCase{
+		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
+	}
+	application := domain.GetApplicationLogs{
+		Name:      applicationName,
+		Namespace: applicationNamespace,
+	}
+	logs, err := getLogsByApplicationNameAndNamespaceUseCase.Execute(application)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error while getting logs": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"logs": logs,
 	})
 }

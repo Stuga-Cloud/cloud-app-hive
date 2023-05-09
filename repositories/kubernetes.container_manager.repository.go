@@ -1,9 +1,11 @@
 package repositories
 
 import (
+	"bytes"
 	"cloud-app-hive/domain"
 	"context"
 	"fmt"
+	"io"
 	v12 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
@@ -19,8 +21,8 @@ import (
 
 type KubernetesContainerManagerRepository struct{}
 
-// ConnectToKubernetesAPIMetrics Connect to Kubernetes API and return the clientset
-func (containerManager KubernetesContainerManagerRepository) ConnectToKubernetesAPIMetrics() *versioned.Clientset {
+// connectToKubernetesAPIMetrics Connect to Kubernetes API and return the clientset
+func (containerManager KubernetesContainerManagerRepository) connectToKubernetesAPIMetrics() *versioned.Clientset {
 	kubeconfig := os.Getenv("KUBECONFIG_PATH")
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
@@ -29,20 +31,19 @@ func (containerManager KubernetesContainerManagerRepository) ConnectToKubernetes
 	return versioned.NewForConfigOrDie(config)
 }
 
-func (containerManager KubernetesContainerManagerRepository) GetMetricsOfApplication(namespace, applicationName string) ([]domain.ApplicationMetrics, error) {
-	metricsClientset := containerManager.ConnectToKubernetesAPIMetrics()
-	fmt.Println("Getting metrics of application and namespace: ", applicationName, namespace)
+func (containerManager KubernetesContainerManagerRepository) GetApplicationMetrics(application domain.GetApplicationMetrics) ([]domain.ApplicationMetrics, error) {
+	applicationNamespace := application.Namespace
+	applicationName := application.Name
 
-	metrics, err := metricsClientset.MetricsV1beta1().PodMetricses(namespace).List(context.Background(), metav1.ListOptions{})
+	metricsClientset := containerManager.connectToKubernetesAPIMetrics()
+	metrics, err := metricsClientset.MetricsV1beta1().PodMetricses(applicationNamespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		panic(err.Error())
 	}
 
-	fmt.Println("Pod metrics:")
 	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
 	var applicationMetrics []domain.ApplicationMetrics
 	for _, metric := range metrics.Items {
-		println("Metric name: ", metric.Name)
 		if strings.HasPrefix(metric.Name, deploymentName) {
 			for _, container := range metric.Containers {
 				var currentApplicationMetrics domain.ApplicationMetrics
@@ -60,8 +61,8 @@ func (containerManager KubernetesContainerManagerRepository) GetMetricsOfApplica
 	return applicationMetrics, nil
 }
 
-// ConnectToKubernetesAPI Connect to Kubernetes API and return the clientset
-func (containerManager KubernetesContainerManagerRepository) ConnectToKubernetesAPI() *kubernetes.Clientset {
+// connectToKubernetesAPI Connect to Kubernetes API and return the clientset
+func (containerManager KubernetesContainerManagerRepository) connectToKubernetesAPI() *kubernetes.Clientset {
 	kubeconfig := os.Getenv("KUBECONFIG_PATH")
 	if kubeconfig == "" {
 		panic("KUBECONFIG_PATH environment variable is not set")
@@ -73,37 +74,33 @@ func (containerManager KubernetesContainerManagerRepository) ConnectToKubernetes
 	return kubernetes.NewForConfigOrDie(config)
 }
 
-func (containerManager KubernetesContainerManagerRepository) DeployApplication(deployApplication domain.DeployApplication) (string, error) {
-	clientset := containerManager.ConnectToKubernetesAPI()
+func (containerManager KubernetesContainerManagerRepository) DeployApplication(deployApplication domain.DeployApplication) error {
+	clientset := containerManager.connectToKubernetesAPI()
 
-	_, err := containerManager.createNamespaceIfNotExists(clientset, deployApplication)
+	err := containerManager.createNamespaceIfNotExists(clientset, deployApplication)
 	if err != nil {
 		panic(err.Error())
 	}
-	println("Namespace: ", deployApplication.Namespace)
 
-	deployment, err := containerManager.createDeployment(clientset, deployApplication)
+	err = containerManager.createDeployment(clientset, deployApplication)
 	if err != nil {
 		panic(err.Error())
 	}
-	println("Deployment: ", deployment)
 
-	service, err := containerManager.createService(clientset, deployApplication)
+	err = containerManager.createService(clientset, deployApplication)
 	if err != nil {
 		panic(err.Error())
 	}
-	println("Service: ", service)
 
-	ingress, err := containerManager.createIngress(clientset, deployApplication)
+	err = containerManager.createIngress(clientset, deployApplication)
 	if err != nil {
 		panic(err.Error())
 	}
-	println("Ingress: ", ingress)
 
-	return "Deployed successfully : " + deployApplication.Name, nil
+	return nil
 }
 
-func (containerManager KubernetesContainerManagerRepository) createNamespaceIfNotExists(clientset *kubernetes.Clientset, deployApplication domain.DeployApplication) (string, error) {
+func (containerManager KubernetesContainerManagerRepository) createNamespaceIfNotExists(clientset *kubernetes.Clientset, deployApplication domain.DeployApplication) error {
 	namespace := deployApplication.Namespace
 	list, err := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	fmt.Println("Error: ", err)
@@ -118,10 +115,12 @@ func (containerManager KubernetesContainerManagerRepository) createNamespaceIfNo
 			panic(err.Error())
 		}
 	}
-	return "Namespace created successfully : " + namespace, nil
+
+	fmt.Println("Namespace created successfully : ", namespace)
+	return nil
 }
 
-func (containerManager KubernetesContainerManagerRepository) createDeployment(clientset *kubernetes.Clientset, deployApplication domain.DeployApplication) (string, error) {
+func (containerManager KubernetesContainerManagerRepository) createDeployment(clientset *kubernetes.Clientset, deployApplication domain.DeployApplication) error {
 	applicationNamespace := deployApplication.Namespace
 	applicationName := deployApplication.Name
 	applicationImage := deployApplication.Image
@@ -184,10 +183,11 @@ func (containerManager KubernetesContainerManagerRepository) createDeployment(cl
 		}
 	}
 
-	return "Deployed successfully : " + applicationName, nil
+	fmt.Println("Deployment created successfully : " + deploymentName + " in namespace " + applicationNamespace)
+	return nil
 }
 
-func (containerManager KubernetesContainerManagerRepository) createService(clientset *kubernetes.Clientset, deployApplication domain.DeployApplication) (string, error) {
+func (containerManager KubernetesContainerManagerRepository) createService(clientset *kubernetes.Clientset, deployApplication domain.DeployApplication) error {
 	applicationNamespace := deployApplication.Namespace
 	applicationName := deployApplication.Name
 	applicationPort := deployApplication.Port
@@ -233,10 +233,12 @@ func (containerManager KubernetesContainerManagerRepository) createService(clien
 			panic(err.Error())
 		}
 	}
-	return "Service created successfully : " + applicationName, nil
+
+	fmt.Println("Service created successfully : " + serviceName + " in namespace " + applicationNamespace)
+	return nil
 }
 
-func (containerManager KubernetesContainerManagerRepository) createIngress(clientset *kubernetes.Clientset, deployApplication domain.DeployApplication) (string, error) {
+func (containerManager KubernetesContainerManagerRepository) createIngress(clientset *kubernetes.Clientset, deployApplication domain.DeployApplication) error {
 	applicationNamespace := deployApplication.Namespace
 	applicationName := deployApplication.Name
 	ingressName := fmt.Sprintf("%s-ingress", applicationName)
@@ -290,5 +292,58 @@ func (containerManager KubernetesContainerManagerRepository) createIngress(clien
 		}
 	}
 
-	return "Ingress created successfully : " + applicationName, nil
+	fmt.Println("Ingress created successfully : " + ingressName + " in namespace " + applicationNamespace)
+	return nil
 }
+
+func (containerManager KubernetesContainerManagerRepository) GetApplicationLogs(deployApplication domain.GetApplicationLogs) ([]domain.ApplicationLogs, error) {
+	applicationNamespace := deployApplication.Namespace
+	applicationName := deployApplication.Name
+	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
+	clientset := containerManager.connectToKubernetesAPI()
+	podList, err := clientset.CoreV1().Pods(applicationNamespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("app=%s", deploymentName),
+	})
+	if err != nil {
+		panic(err.Error())
+	}
+	if len(podList.Items) == 0 {
+		return nil, fmt.Errorf("no pod found for application %s in namespace %s", applicationName, applicationNamespace)
+	}
+
+	logs := make([]domain.ApplicationLogs, 0)
+	podLogOptions := v1.PodLogOptions{
+		// TODO
+	}
+	for _, pod := range podList.Items {
+		request := clientset.CoreV1().Pods(applicationNamespace).GetLogs(pod.Name, &podLogOptions)
+		podLogs, err := request.Stream(context.Background())
+		if err != nil {
+			panic(err.Error())
+		}
+		defer podLogs.Close()
+		buf := new(bytes.Buffer)
+		_, err = io.Copy(buf, podLogs)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		logs = append(logs, domain.ApplicationLogs{
+			PodName: pod.Name,
+			Logs:    buf.String(),
+		})
+	}
+
+	return logs, nil
+}
+
+//func (containerManager KubernetesContainerManagerRepository) deleteDeployment(clientset *kubernetes.Clientset, deployApplication domain.DeployApplication) (string, error) {
+//	applicationNamespace := deployApplication.Namespace
+//	applicationName := deployApplication.PodName
+//	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
+//	err := clientset.AppsV1().Deployments(applicationNamespace).Delete(context.Background(), deploymentName, metav1.DeleteOptions{})
+//	if err != nil {
+//		panic(err.Error())
+//	}
+//	return "Deployment deleted successfully : " + applicationName, nil
+//}

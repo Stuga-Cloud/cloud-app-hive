@@ -9,8 +9,8 @@ type GetApplicationMetricsUseCase struct {
 	ContainerManagerRepository domain.ContainerManagerRepository
 }
 
-func (getApplicationMetricsUseCase GetApplicationMetricsUseCase) Execute(appName, appNamespace string) ([]domain.ApplicationMetrics, error) {
-	metrics, err := getApplicationMetricsUseCase.ContainerManagerRepository.GetMetricsOfApplication(appNamespace, appName)
+func (getApplicationMetricsUseCase GetApplicationMetricsUseCase) Execute(application domain.GetApplicationMetrics) ([]domain.ApplicationMetrics, error) {
+	metrics, err := getApplicationMetricsUseCase.ContainerManagerRepository.GetApplicationMetrics(application)
 	if err != nil {
 		return nil, err
 	}

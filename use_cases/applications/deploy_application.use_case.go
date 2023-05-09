@@ -9,12 +9,10 @@ type DeployApplicationUseCase struct {
 	ContainerManagerRepository domain.ContainerManagerRepository
 }
 
-func (deployApplicationUseCase DeployApplicationUseCase) Execute(deployApplication domain.DeployApplication) (string, error) {
-	output, err := deployApplicationUseCase.ContainerManagerRepository.DeployApplication(deployApplication)
+func (deployApplicationUseCase DeployApplicationUseCase) Execute(deployApplication domain.DeployApplication) error {
+	err := deployApplicationUseCase.ContainerManagerRepository.DeployApplication(deployApplication)
 	if err != nil {
-		return "", err
+		return err
 	}
-	println("Deployed FULLY : ", output)
-
-	return "output", nil
+	return nil
 }
