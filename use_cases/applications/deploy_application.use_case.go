@@ -1,24 +1,20 @@
 package applications
 
 import (
-	"cloud-app-hive/utils"
-	"fmt"
+	"cloud-app-hive/domain"
 )
 
 type DeployApplicationUseCase struct {
 	// All the repositories that the use case needs
+	ContainerManagerRepository domain.ContainerManagerRepository
 }
 
-func (deployApplicationUseCase DeployApplicationUseCase) Execute(appImage, appName, appNamespace string) (string, error) {
-	clientset, err := utils.ConnectToKubernetesAPI()
+func (deployApplicationUseCase DeployApplicationUseCase) Execute(deployApplication domain.DeployApplication) (string, error) {
+	output, err := deployApplicationUseCase.ContainerManagerRepository.DeployApplication(deployApplication)
 	if err != nil {
-		panic(err.Error())
+		return "", err
 	}
-	services, err := utils.GetKubernetesServices(clientset, "default")
-	if err != nil {
-		panic(err.Error())
-	}
-	fmt.Println("Services: ", services)
+	println("Deployed FULLY : ", output)
 
 	return "output", nil
 }

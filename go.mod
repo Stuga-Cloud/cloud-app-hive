@@ -6,6 +6,7 @@ require (
 	github.com/go-playground/validator v9.31.0+incompatible
 	k8s.io/apimachinery v0.27.1
 	k8s.io/client-go v0.27.1
+	k8s.io/metrics v0.27.1
 )
 
 require (
@@ -31,7 +32,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/api v0.27.1 // indirect
+	k8s.io/api v0.27.1
 	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect
 	k8s.io/utils v0.0.0-20230209194617-a36077c30491 // indirect
@@ -41,12 +42,7 @@ require (
 )
 
 require (
-	github.com/fatih/color v1.9.0 // indirect
-	github.com/fsnotify/fsnotify v1.4.9 // indirect
-	github.com/githubnemo/CompileDaemon v1.4.0 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/mattn/go-colorable v0.1.4 // indirect
-	github.com/radovskyb/watcher v1.0.7 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 )
 
@@ -70,7 +66,7 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.10 // indirect
 	golang.org/x/arch v0.2.0 // indirect
-	golang.org/x/crypto v0.6.0
+	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
 	golang.org/x/text v0.8.0 // indirect

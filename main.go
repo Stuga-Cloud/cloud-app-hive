@@ -16,6 +16,7 @@ func main() {
 
 	r := gin.Default()
 	r = controllers.InitRoutes(r)
+
 	err := r.Run(":" + os.Getenv("PORT"))
 	if err != nil {
 		panic(err)
