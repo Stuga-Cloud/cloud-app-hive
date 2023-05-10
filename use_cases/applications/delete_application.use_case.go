@@ -5,12 +5,12 @@ import (
 	"cloud-app-hive/domain/commands"
 )
 
-type CreateApplicationUseCase struct {
+type DeleteApplicationUseCase struct {
 	// All the repositories that the use case needs
 }
 
-func (createApplicationUseCase CreateApplicationUseCase) Execute(createApplication commands.CreateApplication) (domain.Application, error) {
-	// TODO -> Create application in database
+func (deleteApplicationUseCase DeleteApplicationUseCase) Execute(deleteApplication commands.DeleteApplication) (domain.Application, error) {
+	// TODO -> Delete application in database
 
 	// All the logic of the use case
 
@@ -22,7 +22,7 @@ func (createApplicationUseCase CreateApplicationUseCase) Execute(createApplicati
 
 	// Check if the application already exists - by application name and namespace
 
-	// Create the application
+	// Delete the application
 
 	return domain.Application{}, nil
 }

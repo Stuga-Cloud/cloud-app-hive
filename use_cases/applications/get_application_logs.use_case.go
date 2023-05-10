@@ -2,14 +2,16 @@ package applications
 
 import (
 	"cloud-app-hive/domain"
+	"cloud-app-hive/domain/commands"
+	"cloud-app-hive/domain/repositories"
 	"fmt"
 )
 
 type GetApplicationLogsUseCase struct {
-	ContainerManagerRepository domain.ContainerManagerRepository
+	ContainerManagerRepository repositories.ContainerManagerRepository
 }
 
-func (getApplicationLogsUseCase GetApplicationLogsUseCase) Execute(application domain.GetApplicationLogs) ([]domain.ApplicationLogs, error) {
+func (getApplicationLogsUseCase GetApplicationLogsUseCase) Execute(application commands.GetApplicationLogs) ([]domain.ApplicationLogs, error) {
 	logs, err := getApplicationLogsUseCase.ContainerManagerRepository.GetApplicationLogs(application)
 	if err != nil {
 		return []domain.ApplicationLogs{}, fmt.Errorf("error while getting logs: %w", err)

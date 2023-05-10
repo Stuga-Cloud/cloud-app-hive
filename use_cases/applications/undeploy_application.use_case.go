@@ -6,13 +6,13 @@ import (
 	"fmt"
 )
 
-type DeployApplicationUseCase struct {
+type UndeployApplicationUseCase struct {
 	// All the repositories that the use case needs
 	ContainerManagerRepository repositories.ContainerManagerRepository
 }
 
-func (deployApplicationUseCase DeployApplicationUseCase) Execute(applyApplication commands.ApplyApplication) error {
-	err := deployApplicationUseCase.ContainerManagerRepository.ApplyApplication(applyApplication)
+func (undeployApplicationUseCase UndeployApplicationUseCase) Execute(applyApplication commands.UnapplyApplication) error {
+	err := undeployApplicationUseCase.ContainerManagerRepository.UnapplyApplication(applyApplication)
 	if err != nil {
 		return fmt.Errorf("error while applying application: %w", err)
 	}

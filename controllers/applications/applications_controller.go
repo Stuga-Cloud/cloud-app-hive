@@ -3,6 +3,7 @@ package controllers
 import (
 	"cloud-app-hive/controllers/applications/dto"
 	"cloud-app-hive/domain"
+	"cloud-app-hive/domain/commands"
 	"cloud-app-hive/repositories"
 	"cloud-app-hive/use_cases/applications"
 	"fmt"
@@ -38,36 +39,110 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 		return
 	}
 
-	deployApplicationUseCase := applications.DeployApplicationUseCase{
-		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
-	}
-	deployApplication := domain.DeployApplication{
+	createApplicationUseCase := applications.CreateApplicationUseCase{}
+	createApplication := commands.CreateApplication{
 		Name:                      createApplicationDto.Name,
 		Image:                     createApplicationDto.Image,
 		Namespace:                 createApplicationDto.Namespace,
 		Port:                      createApplicationDto.Port,
 		ApplicationType:           createApplicationDto.ApplicationType,
-		EnvironmentVariables:      nil,
-		Secrets:                   nil,
-		ContainerSpecifications:   domain.ApplicationContainerSpecifications{},
-		ScalabilitySpecifications: domain.ApplicationScalabilitySpecifications{},
+		EnvironmentVariables:      createApplicationDto.EnvironmentVariables,      // TODO ADAPTERS
+		Secrets:                   createApplicationDto.Secrets,                   // TODO ADAPTERS
+		ContainerSpecifications:   createApplicationDto.ContainerSpecifications,   // TODO ADAPTERS
+		ScalabilitySpecifications: createApplicationDto.ScalabilitySpecifications, // TODO ADAPTERS
 	}
-	err = deployApplicationUseCase.Execute(deployApplication)
+	application, err := createApplicationUseCase.Execute(createApplication)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error while deploying": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// TODO -> Create application in database
-	createApplicationUseCase := applications.CreateApplicationUseCase{}
-	application, err := createApplicationUseCase.Execute(deployApplication)
+	deployApplicationUseCase := applications.DeployApplicationUseCase{
+		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
+	}
+	applyApplication := commands.ApplyApplication{
+		Name:                      createApplicationDto.Name,
+		Image:                     createApplicationDto.Image,
+		Namespace:                 createApplicationDto.Namespace,
+		Port:                      createApplicationDto.Port,
+		ApplicationType:           createApplicationDto.ApplicationType,
+		EnvironmentVariables:      createApplicationDto.EnvironmentVariables,      // TODO ADAPTERS
+		Secrets:                   createApplicationDto.Secrets,                   // TODO ADAPTERS
+		ContainerSpecifications:   createApplicationDto.ContainerSpecifications,   // TODO ADAPTERS
+		ScalabilitySpecifications: createApplicationDto.ScalabilitySpecifications, // TODO ADAPTERS
+	}
+	err = deployApplicationUseCase.Execute(applyApplication)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error while upserting in database": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": fmt.Sprintf("App %s deployed", application.Name),
+	})
+}
+
+func UpdateApplicationByNameAndNamespaceController(c *gin.Context) {
+	authHeader := c.Request.Header.Get("Authorization")
+	if authHeader != "Bearer "+os.Getenv("API_KEY") {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var updateApplicationDto dto.UpdateApplicationDto
+	if err := c.ShouldBindJSON(&updateApplicationDto); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": err.Error()})
+		return
+	}
+
+	err := dto.ValidateUpdateApplicationDto(updateApplicationDto)
+	if err != nil {
+		c.JSON(400, gin.H{
+			"validation-errors": err.Error(),
+		})
+		return
+	}
+
+	deployApplicationUseCase := applications.DeployApplicationUseCase{
+		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
+	}
+	applyApplication := commands.ApplyApplication{
+		Name:                      updateApplicationDto.Name,
+		Image:                     updateApplicationDto.Image,
+		Namespace:                 updateApplicationDto.Namespace,
+		Port:                      updateApplicationDto.Port,
+		ApplicationType:           updateApplicationDto.ApplicationType,
+		EnvironmentVariables:      nil,                                           // TODO ADAPTERS
+		Secrets:                   nil,                                           // TODO ADAPTERS
+		ContainerSpecifications:   domain.ApplicationContainerSpecifications{},   // TODO ADAPTERS
+		ScalabilitySpecifications: domain.ApplicationScalabilitySpecifications{}, // TODO ADAPTERS
+	}
+	err = deployApplicationUseCase.Execute(applyApplication)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	updateApplicationUseCase := applications.UpdateApplicationUseCase{}
+	updateApplication := commands.UpdateApplication{
+		Name:                      updateApplicationDto.Name,
+		Image:                     updateApplicationDto.Image,
+		Namespace:                 updateApplicationDto.Namespace,
+		Port:                      updateApplicationDto.Port,
+		ApplicationType:           updateApplicationDto.ApplicationType,
+		EnvironmentVariables:      nil,                                           // TODO ADAPTERS
+		Secrets:                   nil,                                           // TODO ADAPTERS
+		ContainerSpecifications:   domain.ApplicationContainerSpecifications{},   // TODO ADAPTERS
+		ScalabilitySpecifications: domain.ApplicationScalabilitySpecifications{}, // TODO ADAPTERS
+	}
+	application, err := updateApplicationUseCase.Execute(updateApplication)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "context": "While updating application in database", "data": updateApplicationDto})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("App %s updated", application.Name),
 	})
 }
 
@@ -90,7 +165,7 @@ func GetMetricsByApplicationNameAndNamespaceController(c *gin.Context) {
 	getMetricsByApplicationNameAndNamespaceUseCase := applications.GetApplicationMetricsUseCase{
 		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
 	}
-	application := domain.GetApplicationMetrics{
+	application := commands.GetApplicationMetrics{
 		Name:      applicationName,
 		Namespace: applicationNamespace,
 	}
@@ -124,17 +199,61 @@ func GetLogsByApplicationNameAndNamespaceController(c *gin.Context) {
 	getLogsByApplicationNameAndNamespaceUseCase := applications.GetApplicationLogsUseCase{
 		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
 	}
-	application := domain.GetApplicationLogs{
+	application := commands.GetApplicationLogs{
 		Name:      applicationName,
 		Namespace: applicationNamespace,
 	}
 	logs, err := getLogsByApplicationNameAndNamespaceUseCase.Execute(application)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error while getting logs": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"logs": logs,
+	})
+}
+
+// DeleteApplicationByNameAndNamespaceController deletes an application by name and namespace in query params
+func DeleteApplicationByNameAndNamespaceController(c *gin.Context) {
+	authHeader := c.Request.Header.Get("Authorization")
+	if authHeader != "Bearer "+os.Getenv("API_KEY") {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	applicationNamespace := c.Param("namespace")
+	applicationName := c.Param("name")
+	if applicationNamespace == "" || applicationName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Namespace and name must be provided"})
+		return
+	}
+
+	undeployApplicationUseCase := applications.UndeployApplicationUseCase{
+		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
+	}
+	unapplyApplication := commands.UnapplyApplication{
+		Name:      applicationName,
+		Namespace: applicationNamespace,
+	}
+	err := undeployApplicationUseCase.Execute(unapplyApplication)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	deleteApplicationUseCase := applications.DeleteApplicationUseCase{}
+	deleteApplication := commands.DeleteApplication{
+		Name:      applicationName,
+		Namespace: applicationNamespace,
+	}
+	_, err = deleteApplicationUseCase.Execute(deleteApplication)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("App %s deleted", applicationName),
 	})
 }
