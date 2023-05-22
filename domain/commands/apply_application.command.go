@@ -7,10 +7,10 @@ type ApplyApplication struct {
 	Name                      string
 	Image                     string
 	Namespace                 string
-	Port                      int
+	Port                      uint32
 	ApplicationType           domain.ApplicationType
-	EnvironmentVariables      []domain.ApplicationEnvironmentVariable
-	Secrets                   []domain.ApplicationSecret
+	EnvironmentVariables      domain.ApplicationEnvironmentVariables
+	Secrets                   domain.ApplicationSecrets
 	ContainerSpecifications   domain.ApplicationContainerSpecifications
 	ScalabilitySpecifications domain.ApplicationScalabilitySpecifications
 }

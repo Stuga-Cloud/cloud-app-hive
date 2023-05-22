@@ -1,20 +1,19 @@
 package controllers
 
 import (
-	applicationControllers "cloud-app-hive/controllers/applications"
+	"cloud-app-hive/controllers/applications"
+	"cloud-app-hive/controllers/namespaces"
 	"github.com/gin-gonic/gin"
 )
 
 func InitRoutes(router *gin.Engine) *gin.Engine {
-	router.POST("/applications", applicationControllers.CreateAndDeployApplicationController)
-	router.PUT("/applications/:namespace/:name", applicationControllers.UpdateApplicationByNameAndNamespaceController)
-	router.GET("/applications/:namespace/:name/metrics", applicationControllers.GetMetricsByApplicationNameAndNamespaceController)
-	router.GET("/applications/:namespace/:name/logs", applicationControllers.GetLogsByApplicationNameAndNamespaceController)
-	//router.GET("/applications", applicationControllers.GetApplicationController) TODO when database is implemented
-	//router.GET("/applications/:namespace/:name", applicationControllers.GetApplicationByNameAndNamespaceController) TODO
-	//router.GET("/applications/:user_id", applicationControllers.GetApplicationByUserIdController) TODO
-	//router.PUT("/applications/:namespace/:name", applicationControllers.UpdateApplicationByNameAndNamespaceController) TODO
-	router.DELETE("/applications/:namespace/:name", applicationControllers.DeleteApplicationByNameAndNamespaceController)
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "pong",
+		})
+	})
 
+	namespaces.InitNamespacesRoutes(router)
+	applications.InitApplicationsRoutes(router)
 	return router
 }

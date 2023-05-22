@@ -14,9 +14,7 @@ type GetApplicationMetricsUseCase struct {
 func (getApplicationMetricsUseCase GetApplicationMetricsUseCase) Execute(application commands.GetApplicationMetrics) ([]domain.ApplicationMetrics, error) {
 	metrics, err := getApplicationMetricsUseCase.ContainerManagerRepository.GetApplicationMetrics(application)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting application metrics: %w", err)
 	}
-	fmt.Println("Metrics: ", metrics)
-
 	return metrics, nil
 }

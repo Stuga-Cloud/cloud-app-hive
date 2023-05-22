@@ -1,5 +1,5 @@
 .env
 main
-mysql/data
+database/data
 .idea
 assets/kubeconfig

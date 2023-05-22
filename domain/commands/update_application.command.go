@@ -4,13 +4,13 @@ import "cloud-app-hive/domain"
 
 // UpdateApplication is a command that represents the deployment of an application
 type UpdateApplication struct {
-	Name                      string
+	UserID                    string
+	Description               string
 	Image                     string
-	Namespace                 string
-	Port                      int
+	Port                      uint32
 	ApplicationType           domain.ApplicationType
-	EnvironmentVariables      []domain.ApplicationEnvironmentVariable
-	Secrets                   []domain.ApplicationSecret
+	EnvironmentVariables      domain.ApplicationEnvironmentVariables
+	Secrets                   domain.ApplicationSecrets
 	ContainerSpecifications   domain.ApplicationContainerSpecifications
 	ScalabilitySpecifications domain.ApplicationScalabilitySpecifications
 }

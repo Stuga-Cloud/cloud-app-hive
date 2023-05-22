@@ -1,4 +1,4 @@
-package dto
+package validators
 
 import (
 	"github.com/go-playground/validator"

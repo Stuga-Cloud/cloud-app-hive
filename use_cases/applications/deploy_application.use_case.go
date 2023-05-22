@@ -7,7 +7,6 @@ import (
 )
 
 type DeployApplicationUseCase struct {
-	// All the repositories that the use case needs
 	ContainerManagerRepository repositories.ContainerManagerRepository
 }
 

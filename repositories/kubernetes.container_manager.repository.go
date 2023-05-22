@@ -128,15 +128,16 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 	for _, environmentVariable := range deployApplication.EnvironmentVariables {
 		applicationEnvironmentVariables = append(applicationEnvironmentVariables, v1.EnvVar{
 			Name:  environmentVariable.Name,
-			Value: environmentVariable.Value,
+			Value: environmentVariable.Val,
 		})
 	}
 	var replicas int32
-	if deployApplication.ApplicationType == domain.ApplicationType(0) {
+	if deployApplication.ApplicationType == domain.ApplicationType("") {
 		replicas = 1
 	} else {
 		replicas = deployApplication.ScalabilitySpecifications.Replicas
 	}
+	// TODO : Add CPU, Memory and Storage limits
 	//cpuLimit := deployApplication.ContainerSpecifications.CpuLimit
 	//memoryLimit := deployApplication.ContainerSpecifications.MemoryLimit
 	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
@@ -168,8 +169,8 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 							Env: applicationEnvironmentVariables,
 							//Resources: v1.ResourceRequirements{ TODO : make it work and set default values
 							//	Requests: v1.ResourceList{
-							//		v1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%d%s", cpuLimit.Value, cpuLimit.Unit.String())),
-							//		v1.ResourceMemory: resource.MustParse(fmt.Sprintf("%d%s", memoryLimit.Value, memoryLimit.Unit.String())),
+							//		v1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%d%s", cpuLimit.Val, cpuLimit.Unit.String())),
+							//		v1.ResourceMemory: resource.MustParse(fmt.Sprintf("%d%s", memoryLimit.Val, memoryLimit.Unit.String())),
 							//	},
 							//},
 						},
@@ -205,10 +206,12 @@ func (containerManager KubernetesContainerManagerRepository) applyService(client
 	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
 
 	var serviceType v1.ServiceType
-	if deployApplication.ApplicationType == domain.ApplicationType(0) {
+	if deployApplication.ApplicationType == domain.SingleInstance {
 		serviceType = v1.ServiceTypeClusterIP
-	} else {
+	} else if deployApplication.ApplicationType == domain.LoadBalanced {
 		serviceType = v1.ServiceTypeLoadBalancer // TODO - not working with type load balancer
+	} else {
+		return errors.New("invalid application type : " + string(deployApplication.ApplicationType))
 	}
 
 	service := &v1.Service{
@@ -224,7 +227,7 @@ func (containerManager KubernetesContainerManagerRepository) applyService(client
 				{
 					Protocol:   v1.ProtocolTCP,
 					Port:       int32(servicePort),
-					TargetPort: intstr.FromInt(applicationPort),
+					TargetPort: intstr.FromInt(int(applicationPort)),
 				},
 			},
 			Type: serviceType,
@@ -303,6 +306,16 @@ func (containerManager KubernetesContainerManagerRepository) applyIngress(client
 		}
 	}
 
+	for {
+		ingress, err := clientset.NetworkingV1().Ingresses(applicationNamespace).Get(context.Background(), ingressName, metav1.GetOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+		if len(ingress.Status.LoadBalancer.Ingress) > 0 {
+			break
+		}
+	}
+
 	fmt.Println("Ingress created successfully : " + ingressName + " in namespace " + applicationNamespace)
 	return nil
 }
@@ -353,24 +366,20 @@ func (containerManager KubernetesContainerManagerRepository) UnapplyApplication(
 	applicationName := unapplyApplication.Name
 
 	clientset := containerManager.connectToKubernetesAPI()
-	err := containerManager.deleteIngress(clientset, unapplyApplication)
-	if err != nil {
-		panic(err.Error())
+	if err := containerManager.deleteIngress(clientset, unapplyApplication); err != nil {
+		return fmt.Errorf("failed to delete ingress: %v", err)
 	}
 
-	err = containerManager.deleteService(clientset, unapplyApplication)
-	if err != nil {
-		panic(err.Error())
+	if err := containerManager.deleteService(clientset, unapplyApplication); err != nil {
+		return fmt.Errorf("failed to delete service: %v", err)
 	}
 
-	err = containerManager.deleteDeployment(clientset, unapplyApplication)
-	if err != nil {
-		panic(err.Error())
+	if err := containerManager.deleteDeployment(clientset, unapplyApplication); err != nil {
+		return fmt.Errorf("failed to delete deployment: %v", err)
 	}
 
-	err = containerManager.deletePods(clientset, unapplyApplication)
-	if err != nil {
-		panic(err.Error())
+	if err := containerManager.deletePods(clientset, unapplyApplication); err != nil {
+		return fmt.Errorf("failed to delete pods: %v", err)
 	}
 
 	fmt.Println("Application deleted successfully : " + applicationName + " in namespace " + applicationNamespace)
@@ -434,37 +443,73 @@ func (containerManager KubernetesContainerManagerRepository) deletePods(clientse
 }
 
 //func (containerManager KubernetesContainerManagerRepository) deleteNamespace(clientset *kubernetes.Clientset, deployApplication commands.UnapplyApplication) error {
-//	applicationNamespace := deployApplication.Namespace
+//	applicationNamespace := deployApplication.NamespaceID
 //	err := clientset.CoreV1().Namespaces().Delete(context.Background(), applicationNamespace, metav1.DeleteOptions{})
 //	if err != nil {
 //		panic(err.Error())
 //	}
-//	fmt.Println("Namespace deleted successfully : " + applicationNamespace)
+//	fmt.Println("NamespaceID deleted successfully : " + applicationNamespace)
 //	return nil
 //}
 
-//func (containerManager KubernetesContainerManagerRepository) GetApplicationStatus(deployApplication commands.GetApplicationStatus) (string, error) {
-//	applicationNamespace := deployApplication.Namespace
-//	applicationName := deployApplication.Name
-//	clientset := containerManager.connectToKubernetesAPI()
-//	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
-//	deployment, err := clientset.AppsV1().Deployments(applicationNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
-//	if err != nil {
-//		panic(err.Error())
-//	}
-//	if deployment.Status.ReadyReplicas == 0 {
-//		return "Application " + applicationName + " is not ready", nil
-//	}
-//	return "Application " + applicationName + " is ready", nil
-//}
+func (containerManager KubernetesContainerManagerRepository) GetApplicationStatus(deployApplication commands.GetApplicationStatus) (*domain.ApplicationStatus, error) {
+	applicationNamespace := deployApplication.Namespace
+	applicationName := deployApplication.Name
+	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
 
-//func (containerManager KubernetesContainerManagerRepository) deleteDeployment(clientset *kubernetes.Clientset, deployApplication domain.ApplyApplication) (string, error) {
-//	applicationNamespace := deployApplication.Namespace
-//	applicationName := deployApplication.PodName
-//	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
-//	err := clientset.AppsV1().Deployments(applicationNamespace).Delete(context.Background(), deploymentName, metav1.DeleteOptions{})
-//	if err != nil {
-//		panic(err.Error())
-//	}
-//	return "Deployment deleted successfully : " + applicationName, nil
-//}
+	clientset := containerManager.connectToKubernetesAPI()
+	deployment, err := clientset.AppsV1().Deployments(applicationNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	serviceName := fmt.Sprintf("%s-service", applicationName)
+	service, err := clientset.CoreV1().Services(applicationNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("Service status : " + service.Status.String())
+
+	ingressName := fmt.Sprintf("%s-ingress", applicationName)
+	ingress, err := clientset.NetworkingV1().Ingresses(applicationNamespace).Get(context.Background(), ingressName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("Ingress status : " + ingress.Status.String())
+
+	var deploymentConditions []domain.DeploymentCondition
+	for _, condition := range deployment.Status.Conditions {
+		deploymentConditions = append(deploymentConditions, domain.DeploymentCondition{
+			Type:               string(condition.Type),
+			Status:             string(condition.Status),
+			LastUpdateTime:     condition.LastUpdateTime.String(),
+			LastTransitionTime: condition.LastTransitionTime.String(),
+			Reason:             condition.Reason,
+			Message:            condition.Message,
+		})
+	}
+	applicationStatus := domain.ApplicationStatus{
+		DeploymentName:      deployment.Name,
+		StatusInString:      deployment.Status.String(),
+		Replicas:            deployment.Status.Replicas,
+		AvailableReplicas:   deployment.Status.AvailableReplicas,
+		UnavailableReplicas: deployment.Status.UnavailableReplicas,
+		ReadyReplicas:       deployment.Status.ReadyReplicas,
+		DesiredReplicas:     deployment.Status.Replicas,
+		CurrentReplicas:     deployment.Status.Replicas,
+		UpdatedReplicas:     deployment.Status.UpdatedReplicas,
+		DeploymentCondition: deploymentConditions,
+		ServiceStatus:       domain.ServiceStatus{
+			// TODO
+			//Name:              service.Name,
+			//ClusterIP:         service.Status.LoadBalancer
+			//Type:              string(service.Spec.Type),
+			//StatusInString:    service.Status.String(),
+		},
+		IngressStatus: domain.IngressStatus{
+			// TODO
+		},
+	}
+
+	return &applicationStatus, nil
+}

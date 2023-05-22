@@ -3,26 +3,28 @@ package applications
 import (
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/commands"
+	"cloud-app-hive/domain/repositories"
+	"fmt"
 )
 
 type DeleteApplicationUseCase struct {
-	// All the repositories that the use case needs
+	ApplicationRepository repositories.ApplicationRepository
 }
 
-func (deleteApplicationUseCase DeleteApplicationUseCase) Execute(deleteApplication commands.DeleteApplication) (domain.Application, error) {
-	// TODO -> Delete application in database
+func (deleteApplicationUseCase DeleteApplicationUseCase) Execute(deleteApplication commands.DeleteApplication) (*domain.Application, error) {
+	application, err := deleteApplicationUseCase.ApplicationRepository.FindByID(deleteApplication.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting application by ID: %w", err)
+	}
 
-	// All the logic of the use case
+	if application.UserID != deleteApplication.UserID {
+		return nil, fmt.Errorf("user is not the owner of the application")
+	}
 
-	// Get user namespaces and applications
+	_, err = deleteApplicationUseCase.ApplicationRepository.Delete(deleteApplication.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error when deleting application: %w", err)
+	}
 
-	// Check if the namespace exists
-
-	// Check if the user can access to the namespace
-
-	// Check if the application already exists - by application name and namespace
-
-	// Delete the application
-
-	return domain.Application{}, nil
+	return application, nil
 }
