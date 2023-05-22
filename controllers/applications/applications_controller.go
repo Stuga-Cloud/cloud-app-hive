@@ -1,7 +1,9 @@
 package applications
 
 import (
-	"cloud-app-hive/controllers/applications/dto"
+	"cloud-app-hive/controllers/applications/requests"
+	"cloud-app-hive/controllers/applications/responses"
+	"cloud-app-hive/controllers/errors"
 	"cloud-app-hive/controllers/validators"
 	"cloud-app-hive/database"
 	"cloud-app-hive/domain/commands"
@@ -12,22 +14,43 @@ import (
 	"net/http"
 )
 
+// CreateAndDeployApplicationController godoc
+// @Summary Creates in database and deploys an application
+// @Description creates in database and deploys an application on the cloud
+// @ID create-and-deploy-application
+// @Tags Applications
+// @Accept  json
+// @Produce  json
+// @Param Authorization header string true "Authorization Token"
+// @Param createApplicationRequest body requests.CreateApplicationRequest true "Create Application Request"
+// @Success 200 {object} responses.CreateApplicationResponse
+// @Failure 400 {object} errors.ApiError
+// @Router /applications [post]
 func CreateAndDeployApplicationController(c *gin.Context) {
 	if validators.ValidateAuthorizationToken(c) == false {
 		validators.Unauthorized(c)
 		return
 	}
 
-	var createApplicationDto dto.CreateApplicationDto
-	if err := c.ShouldBindJSON(&createApplicationDto); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": fmt.Errorf("error while binding json: %w", err).Error()})
+	var createApplicationRequest requests.CreateApplicationRequest
+	if err := c.ShouldBindJSON(&createApplicationRequest); err != nil {
+		c.JSON(http.StatusBadRequest, errors.NewApiError(
+			http.StatusBadRequest,
+			"validation_errors",
+			fmt.Errorf("error while binding json: %w", err).Error(),
+			"Check if the request body is correct (see the swagger documentation)",
+			c,
+			map[string]interface{}{
+				"body": c.Request.Body,
+			},
+		))
 		return
 	}
 
-	err := dto.ValidateCreateApplicationDto(createApplicationDto)
+	err := requests.ValidateCreateApplicationRequest(createApplicationRequest)
 	if err != nil {
 		c.JSON(400, gin.H{
-			"validation-errors": fmt.Errorf("error while validating create application dto: %w", err).Error(),
+			"validation-errors": fmt.Errorf("error while validating create application request: %w", err).Error(),
 		})
 		return
 	}
@@ -45,16 +68,16 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 		},
 	}
 	createApplication := commands.CreateApplication{
-		Name:                      createApplicationDto.Name,
-		Image:                     createApplicationDto.Image,
-		NamespaceID:               createApplicationDto.NamespaceID,
-		UserID:                    createApplicationDto.UserID,
-		Port:                      createApplicationDto.Port,
-		ApplicationType:           createApplicationDto.ApplicationType,
-		EnvironmentVariables:      createApplicationDto.EnvironmentVariables,
-		Secrets:                   createApplicationDto.Secrets,
-		ContainerSpecifications:   createApplicationDto.ContainerSpecifications,
-		ScalabilitySpecifications: createApplicationDto.ScalabilitySpecifications,
+		Name:                      createApplicationRequest.Name,
+		Image:                     createApplicationRequest.Image,
+		NamespaceID:               createApplicationRequest.NamespaceID,
+		UserID:                    createApplicationRequest.UserID,
+		Port:                      createApplicationRequest.Port,
+		ApplicationType:           createApplicationRequest.ApplicationType,
+		EnvironmentVariables:      createApplicationRequest.EnvironmentVariables,
+		Secrets:                   createApplicationRequest.Secrets,
+		ContainerSpecifications:   createApplicationRequest.ContainerSpecifications,
+		ScalabilitySpecifications: createApplicationRequest.ScalabilitySpecifications,
 	}
 	application, namespace, err := createApplicationUseCase.Execute(createApplication)
 	if err != nil {
@@ -82,9 +105,9 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message":     fmt.Sprintf("App %s deployed", application.Name),
-		"application": application,
+	c.JSON(http.StatusOK, responses.CreateApplicationResponse{
+		Message:     fmt.Sprintf("App %s deployed", application.Name),
+		Application: responses.ApplicationDomainToResponse(application),
 	})
 }
 
@@ -94,8 +117,8 @@ func UpdateApplicationByNameAndNamespaceController(c *gin.Context) {
 		return
 	}
 
-	var updateApplicationDto dto.UpdateApplicationDto
-	if err := c.ShouldBindJSON(&updateApplicationDto); err != nil {
+	var updateApplicationRequest requests.UpdateApplicationRequest
+	if err := c.ShouldBindJSON(&updateApplicationRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": err.Error()})
 		return
 	}
@@ -107,7 +130,7 @@ func UpdateApplicationByNameAndNamespaceController(c *gin.Context) {
 		return
 	}
 
-	err := dto.ValidateUpdateApplicationDto(updateApplicationDto)
+	err := requests.ValidateUpdateApplicationRequest(updateApplicationRequest)
 	if err != nil {
 		c.JSON(400, gin.H{
 			"validation-errors": err.Error(),
@@ -129,21 +152,21 @@ func UpdateApplicationByNameAndNamespaceController(c *gin.Context) {
 	}
 	updateApplication := commands.UpdateApplication{
 		UserID:                    userID,
-		Description:               updateApplicationDto.Description,
-		Image:                     updateApplicationDto.Image,
-		Port:                      updateApplicationDto.Port,
-		ApplicationType:           updateApplicationDto.ApplicationType,
+		Description:               updateApplicationRequest.Description,
+		Image:                     updateApplicationRequest.Image,
+		Port:                      updateApplicationRequest.Port,
+		ApplicationType:           updateApplicationRequest.ApplicationType,
 		EnvironmentVariables:      nil,
 		Secrets:                   nil,
-		ContainerSpecifications:   updateApplicationDto.ContainerSpecifications,
-		ScalabilitySpecifications: updateApplicationDto.ScalabilitySpecifications,
+		ContainerSpecifications:   updateApplicationRequest.ContainerSpecifications,
+		ScalabilitySpecifications: updateApplicationRequest.ScalabilitySpecifications,
 	}
 	application, namespace, err := updateApplicationUseCase.Execute(applicationID, updateApplication)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   err.Error(),
 			"context": "While updating application in database",
-			"body":    updateApplicationDto,
+			"body":    updateApplicationRequest,
 		})
 		return
 	}

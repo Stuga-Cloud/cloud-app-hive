@@ -1,6 +1,8 @@
 package domain
 
-import "time"
+import (
+	"time"
+)
 
 // Application is a struct that represents a user's application
 type Application struct {

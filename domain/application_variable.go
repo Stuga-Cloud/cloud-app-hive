@@ -13,6 +13,7 @@ type ApplicationEnvironmentVariable struct {
 }
 
 // ApplicationEnvironmentVariables is a slice of ApplicationEnvironmentVariable
+// swagger:model ApplicationEnvironmentVariables
 type ApplicationEnvironmentVariables []ApplicationEnvironmentVariable
 
 func (applicationEnvVariables *ApplicationEnvironmentVariables) Scan(value interface{}) error {

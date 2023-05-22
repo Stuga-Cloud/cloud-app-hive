@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"cloud-app-hive/domain/errors"
+	"cloud-app-hive/controllers/errors"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -62,6 +62,7 @@ func (containerLimit *ContainerLimit) Value() (driver.Value, error) {
 }
 
 // ApplicationContainerSpecifications is a struct that represents the container characteristics of an application
+// swagger:model ApplicationContainerSpecifications
 type ApplicationContainerSpecifications struct {
 	CpuLimit     ContainerLimit `json:"cpu_limit" gorm:"json"`
 	MemoryLimit  ContainerLimit `json:"memory_limit" gorm:"json"`

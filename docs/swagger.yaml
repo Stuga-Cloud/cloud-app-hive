@@ -1,0 +1,219 @@
+definitions:
+  domain.ApplicationContainerSpecifications:
+    properties:
+      cpu_limit:
+        $ref: '#/definitions/domain.ContainerLimit'
+      memory_limit:
+        $ref: '#/definitions/domain.ContainerLimit'
+      storage_limit:
+        $ref: '#/definitions/domain.ContainerLimit'
+    type: object
+  domain.ApplicationEnvironmentVariable:
+    properties:
+      name:
+        type: string
+      value:
+        type: string
+    required:
+    - name
+    - value
+    type: object
+  domain.ApplicationScalabilitySpecifications:
+    properties:
+      is_auto_scaled:
+        type: boolean
+      maximum_instance_count:
+        type: integer
+      minimum_instance_count:
+        type: integer
+      replicas:
+        type: integer
+    required:
+    - maximum_instance_count
+    - minimum_instance_count
+    - replicas
+    type: object
+  domain.ApplicationSecret:
+    properties:
+      name:
+        type: string
+      value:
+        type: string
+    required:
+    - name
+    - value
+    type: object
+  domain.ApplicationType:
+    enum:
+    - SINGLE_INSTANCE
+    - LOAD_BALANCED
+    type: string
+    x-enum-varnames:
+    - SingleInstance
+    - LoadBalanced
+  domain.ContainerLimit:
+    properties:
+      unit:
+        allOf:
+        - $ref: '#/definitions/domain.LimitUnit'
+        enum:
+        - KB
+        - MB
+        - GB
+        - TB
+      value:
+        type: integer
+    type: object
+  domain.LimitUnit:
+    enum:
+    - KB
+    - MB
+    - GB
+    - TB
+    type: string
+    x-enum-varnames:
+    - KB
+    - MB
+    - GB
+    - TB
+  errors.ApiError:
+    properties:
+      context: {}
+      date:
+        type: string
+      description:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+      status_code:
+        type: integer
+    type: object
+  requests.CreateApplicationRequest:
+    properties:
+      application_type:
+        allOf:
+        - $ref: '#/definitions/domain.ApplicationType'
+        enum:
+        - SINGLE_INSTANCE
+        - LOAD_BALANCED
+      container_specifications:
+        $ref: '#/definitions/domain.ApplicationContainerSpecifications'
+      environment_variables:
+        items:
+          $ref: '#/definitions/domain.ApplicationEnvironmentVariable'
+        type: array
+      image:
+        type: string
+      name:
+        maxLength: 50
+        minLength: 3
+        type: string
+      namespace_id:
+        type: string
+      port:
+        maximum: 65535
+        minimum: 1
+        type: integer
+      scalability_specifications:
+        $ref: '#/definitions/domain.ApplicationScalabilitySpecifications'
+      secrets:
+        items:
+          $ref: '#/definitions/domain.ApplicationSecret'
+        type: array
+      user_id:
+        type: string
+    required:
+    - image
+    - name
+    - namespace_id
+    - port
+    - user_id
+    type: object
+  responses.ApplicationResponse:
+    properties:
+      application_type:
+        $ref: '#/definitions/domain.ApplicationType'
+      container_specifications:
+        $ref: '#/definitions/domain.ApplicationContainerSpecifications'
+      environment_variables:
+        items:
+          $ref: '#/definitions/domain.ApplicationEnvironmentVariable'
+        type: array
+      id:
+        type: string
+      image:
+        type: string
+      name:
+        type: string
+      namespace_id:
+        type: string
+      port:
+        type: integer
+      scalability_specifications:
+        $ref: '#/definitions/domain.ApplicationScalabilitySpecifications'
+      secrets:
+        items:
+          $ref: '#/definitions/domain.ApplicationSecret'
+        type: array
+      user_id:
+        type: string
+    type: object
+  responses.CreateApplicationResponse:
+    properties:
+      application:
+        $ref: '#/definitions/responses.ApplicationResponse'
+      message:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /applications:
+    post:
+      consumes:
+      - application/json
+      description: creates in database and deploys an application on the cloud
+      operationId: create-and-deploy-application
+      parameters:
+      - description: Authorization Token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Create Application Request
+        in: body
+        name: createApplicationRequest
+        required: true
+        schema:
+          $ref: '#/definitions/requests.CreateApplicationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/responses.CreateApplicationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/errors.ApiError'
+      summary: Creates in database and deploys an application
+      tags:
+      - Applications
+  /health:
+    get:
+      description: checks the health of the API
+      operationId: health-check
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: pong
+          schema:
+            type: string
+      summary: Health check endpoint
+      tags:
+      - Health
+swagger: "2.0"

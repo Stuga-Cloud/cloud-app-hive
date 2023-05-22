@@ -13,6 +13,7 @@ type ApplicationSecret struct {
 }
 
 // ApplicationSecrets is a slice of ApplicationSecret
+// swagger:model ApplicationSecrets
 type ApplicationSecrets []ApplicationSecret
 
 func (applicationSecrets *ApplicationSecrets) Scan(value interface{}) error {

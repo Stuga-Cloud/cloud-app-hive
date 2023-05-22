@@ -1,7 +1,7 @@
 package namespaces
 
 import (
-	"cloud-app-hive/controllers/namespaces/dto"
+	"cloud-app-hive/controllers/namespaces/requests"
 	"cloud-app-hive/controllers/validators"
 	"cloud-app-hive/database"
 	"cloud-app-hive/domain/commands"
@@ -28,13 +28,13 @@ func CreateNamespaceController(c *gin.Context) {
 		return
 	}
 
-	var createNamespaceDto dto.CreateNamespaceDto
-	if err := c.ShouldBindJSON(&createNamespaceDto); err != nil {
+	var createNamespaceRequest requests.CreateNamespaceRequest
+	if err := c.ShouldBindJSON(&createNamespaceRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": err.Error()})
 		return
 	}
 
-	err := dto.ValidateCreateNamespaceDto(createNamespaceDto)
+	err := requests.ValidateCreateNamespaceRequest(createNamespaceRequest)
 	if err != nil {
 		c.JSON(400, gin.H{
 			"validation-errors": err.Error(),
@@ -52,9 +52,9 @@ func CreateNamespaceController(c *gin.Context) {
 		},
 	}
 	createNamespace := commands.CreateNamespace{
-		Name:        createNamespaceDto.Name,
-		Description: createNamespaceDto.Description,
-		UserID:      createNamespaceDto.UserID,
+		Name:        createNamespaceRequest.Name,
+		Description: createNamespaceRequest.Description,
+		UserID:      createNamespaceRequest.UserID,
 	}
 	namespace, err := createNamespaceUseCase.Execute(createNamespace)
 	if err != nil {
@@ -74,13 +74,13 @@ func FindNamespacesController(c *gin.Context) {
 	}
 
 	// Validate query params
-	var findNamespacesDto dto.FindNamespacesDto
-	if err := c.ShouldBindQuery(&findNamespacesDto); err != nil {
+	var findNamespacesRequest requests.FindNamespacesRequest
+	if err := c.ShouldBindQuery(&findNamespacesRequest); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": err.Error()})
 		return
 	}
 
-	err := dto.ValidateFindNamespacesDto(findNamespacesDto)
+	err := requests.ValidateFindNamespacesRequest(findNamespacesRequest)
 	if err != nil {
 		c.JSON(400, gin.H{
 			"validation-errors": err.Error(),
@@ -98,10 +98,10 @@ func FindNamespacesController(c *gin.Context) {
 		},
 	}
 	findNamespaces := commands.FindNamespaces{
-		Name:    findNamespacesDto.Name,
-		UserID:  findNamespacesDto.UserID,
-		Page:    findNamespacesDto.Page,
-		PerPage: findNamespacesDto.PerPage,
+		Name:    findNamespacesRequest.Name,
+		UserID:  findNamespacesRequest.UserID,
+		Page:    findNamespacesRequest.Page,
+		PerPage: findNamespacesRequest.PerPage,
 	}
 	foundNamespaces, err := getNamespacesUseCase.Execute(findNamespaces)
 	if err != nil {

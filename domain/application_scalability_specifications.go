@@ -1,13 +1,14 @@
 package domain
 
 import (
-	"cloud-app-hive/domain/errors"
+	"cloud-app-hive/controllers/errors"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 )
 
 // ApplicationScalabilitySpecifications is a struct that represents the scalability specifications of an application
+// swagger:model ApplicationScalabilitySpecifications
 type ApplicationScalabilitySpecifications struct {
 	MinimumInstanceCount int32 `json:"minimum_instance_count" binding:"required"`
 	MaximumInstanceCount int32 `json:"maximum_instance_count" binding:"required"`
