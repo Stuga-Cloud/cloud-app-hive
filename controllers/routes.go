@@ -1,9 +1,10 @@
 package controllers
 
 import (
+	"net/http"
+
 	"cloud-app-hive/controllers/applications"
 	"cloud-app-hive/controllers/namespaces"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 )

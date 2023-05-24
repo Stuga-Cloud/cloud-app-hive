@@ -2,12 +2,16 @@ package repositories
 
 import (
 	"bytes"
-	"cloud-app-hive/domain"
-	"cloud-app-hive/domain/commands"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"strings"
+
+	"cloud-app-hive/domain"
+	"cloud-app-hive/domain/commands"
+
 	v12 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/networking/v1"
@@ -16,8 +20,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/metrics/pkg/client/clientset/versioned"
-	"os"
-	"strings"
 )
 
 type KubernetesContainerManagerRepository struct{}
@@ -123,8 +125,8 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 	applicationNamespace := deployApplication.Namespace
 	applicationName := deployApplication.Name
 	applicationImage := deployApplication.Image
-	//applicationPort := deployApplication.Port
-	var applicationEnvironmentVariables = make([]v1.EnvVar, 0)
+	// applicationPort := deployApplication.Port
+	applicationEnvironmentVariables := make([]v1.EnvVar, 0)
 	for _, environmentVariable := range deployApplication.EnvironmentVariables {
 		applicationEnvironmentVariables = append(applicationEnvironmentVariables, v1.EnvVar{
 			Name:  environmentVariable.Name,
@@ -138,8 +140,8 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 		replicas = deployApplication.ScalabilitySpecifications.Replicas
 	}
 	// TODO : Add CPU, Memory and Storage limits
-	//cpuLimit := deployApplication.ContainerSpecifications.CpuLimit
-	//memoryLimit := deployApplication.ContainerSpecifications.MemoryLimit
+	// cpuLimit := deployApplication.ContainerSpecifications.CpuLimit
+	// memoryLimit := deployApplication.ContainerSpecifications.MemoryLimit
 	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
 
 	deployment := &v12.Deployment{
@@ -501,10 +503,10 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 		DeploymentCondition: deploymentConditions,
 		ServiceStatus:       domain.ServiceStatus{
 			// TODO
-			//Name:              service.Name,
-			//ClusterIP:         service.Status.LoadBalancer
-			//Type:              string(service.Spec.Type),
-			//StatusInString:    service.Status.String(),
+			// Name:              service.Name,
+			// ClusterIP:         service.Status.LoadBalancer
+			// Type:              string(service.Spec.Type),
+			// StatusInString:    service.Status.String(),
 		},
 		IngressStatus: domain.IngressStatus{
 			// TODO

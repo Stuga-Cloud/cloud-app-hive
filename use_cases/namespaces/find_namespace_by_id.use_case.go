@@ -1,9 +1,10 @@
 package namespaces
 
 import (
+	"fmt"
+
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/repositories"
-	"fmt"
 )
 
 type FindNamespaceByIDUseCase struct {

@@ -1,6 +1,8 @@
 package namespaces
 
 import (
+	"net/http"
+
 	"cloud-app-hive/controllers/namespaces/requests"
 	"cloud-app-hive/controllers/validators"
 	"cloud-app-hive/database"
@@ -8,7 +10,6 @@ import (
 	"cloud-app-hive/repositories"
 	"cloud-app-hive/use_cases/namespaces"
 	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 // ApiError from https://github.com/go-playground/validator/issues/559

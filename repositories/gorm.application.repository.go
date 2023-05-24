@@ -1,12 +1,14 @@
 package repositories
 
 import (
+	"fmt"
+	"time"
+
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/commands"
-	"fmt"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"time"
 )
 
 type GORMApplicationRepository struct {

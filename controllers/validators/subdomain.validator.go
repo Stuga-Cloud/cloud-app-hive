@@ -1,8 +1,9 @@
 package validators
 
 import (
-	"github.com/go-playground/validator"
 	"regexp"
+
+	"github.com/go-playground/validator"
 )
 
 func IsACustomStringForSubdomainValidation(fl validator.FieldLevel) bool {

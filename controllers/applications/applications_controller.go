@@ -1,6 +1,9 @@
 package applications
 
 import (
+	"fmt"
+	"net/http"
+
 	"cloud-app-hive/controllers/applications/requests"
 	"cloud-app-hive/controllers/applications/responses"
 	"cloud-app-hive/controllers/errors"
@@ -9,9 +12,8 @@ import (
 	"cloud-app-hive/domain/commands"
 	"cloud-app-hive/repositories"
 	"cloud-app-hive/use_cases/applications"
-	"fmt"
+
 	"github.com/gin-gonic/gin"
-	"net/http"
 )
 
 // CreateAndDeployApplicationController godoc
@@ -27,7 +29,7 @@ import (
 // @Failure 400 {object} errors.ApiError
 // @Router /applications [post]
 func CreateAndDeployApplicationController(c *gin.Context) {
-	if validators.ValidateAuthorizationToken(c) == false {
+	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
 		return
 	}
@@ -44,14 +46,16 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 				"body": c.Request.Body,
 			},
 		))
+
 		return
 	}
 
 	err := requests.ValidateCreateApplicationRequest(createApplicationRequest)
 	if err != nil {
-		c.JSON(400, gin.H{
+		c.JSON(http.StatusBadRequest, gin.H{
 			"validation-errors": fmt.Errorf("error while validating create application request: %w", err).Error(),
 		})
+
 		return
 	}
 
@@ -59,6 +63,7 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
+
 	createApplicationUseCase := applications.CreateApplicationUseCase{
 		ApplicationRepository: repositories.GORMApplicationRepository{
 			Database: db,
@@ -67,6 +72,7 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 			Database: db,
 		},
 	}
+
 	createApplication := commands.CreateApplication{
 		Name:                      createApplicationRequest.Name,
 		Image:                     createApplicationRequest.Image,
@@ -79,6 +85,7 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 		ContainerSpecifications:   createApplicationRequest.ContainerSpecifications,
 		ScalabilitySpecifications: createApplicationRequest.ScalabilitySpecifications,
 	}
+
 	application, namespace, err := createApplicationUseCase.Execute(createApplication)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -100,6 +107,7 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 		ScalabilitySpecifications: *application.ScalabilitySpecifications,
 	}
 	err = deployApplicationUseCase.Execute(applyApplication)
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -112,7 +120,7 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 }
 
 func UpdateApplicationByNameAndNamespaceController(c *gin.Context) {
-	if validators.ValidateAuthorizationToken(c) == false {
+	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
 		return
 	}
@@ -199,7 +207,7 @@ func UpdateApplicationByNameAndNamespaceController(c *gin.Context) {
 
 // DeleteApplicationByNameAndNamespaceController deletes an application by name and namespace in query params
 func DeleteApplicationByNameAndNamespaceController(c *gin.Context) {
-	if validators.ValidateAuthorizationToken(c) == false {
+	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
 		return
 	}
@@ -251,7 +259,7 @@ func DeleteApplicationByNameAndNamespaceController(c *gin.Context) {
 
 // GetMetricsByApplicationNameAndNamespaceController returns the metrics of an application by name and namespace in query params
 func GetMetricsByApplicationNameAndNamespaceController(c *gin.Context) {
-	if validators.ValidateAuthorizationToken(c) == false {
+	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
 		return
 	}
@@ -283,8 +291,9 @@ func GetMetricsByApplicationNameAndNamespaceController(c *gin.Context) {
 
 // GetLogsByApplicationNameAndNamespaceController returns the logs of an application by name and namespace in query params
 func GetLogsByApplicationNameAndNamespaceController(c *gin.Context) {
-	if validators.ValidateAuthorizationToken(c) == false {
+	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
+
 		return
 	}
 
@@ -292,6 +301,7 @@ func GetLogsByApplicationNameAndNamespaceController(c *gin.Context) {
 	applicationName := c.Param("name")
 	if applicationNamespace == "" || applicationName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Namespace and name must be provided"})
+
 		return
 	}
 

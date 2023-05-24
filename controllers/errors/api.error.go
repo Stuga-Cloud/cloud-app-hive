@@ -2,8 +2,9 @@ package errors
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 type ApiError struct {

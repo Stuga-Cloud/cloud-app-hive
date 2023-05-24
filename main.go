@@ -1,10 +1,11 @@
 package main
 
 import (
+	"os"
+
 	"cloud-app-hive/config"
 	"cloud-app-hive/controllers"
 	"cloud-app-hive/database"
-	"os"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"

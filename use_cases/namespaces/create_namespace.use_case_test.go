@@ -1,10 +1,11 @@
 package namespaces
 
 import (
-	"cloud-app-hive/domain"
-	"cloud-app-hive/domain/commands"
 	"fmt"
 	"testing"
+
+	"cloud-app-hive/domain"
+	"cloud-app-hive/domain/commands"
 )
 
 // MockNamespaceRepository is a mock implementation of the NamespaceRepository interface above
@@ -57,7 +58,6 @@ func TestExecute_CreateNamespace_Success(t *testing.T) {
 
 	// Execute the use case
 	createdNamespace, err := useCase.Execute(createNamespace)
-
 	// Assert the results
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)

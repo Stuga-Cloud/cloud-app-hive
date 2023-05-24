@@ -1,11 +1,13 @@
 package database
 
 import (
-	"cloud-app-hive/domain"
 	"fmt"
+	"os"
+
+	"cloud-app-hive/domain"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"os"
 )
 
 func ConnectToDatabase() (*gorm.DB, error) {

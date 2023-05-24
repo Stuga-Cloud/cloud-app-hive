@@ -18,5 +18,5 @@ type NamespaceRepository interface {
 	// Delete deletes a namespace
 	Delete(id string) (*domain.Namespace, error)
 	// Update updates a namespace
-	//Update(namespace commands.UpdateNamespace) (*domain.NamespaceID, error)
+	// Update(namespace commands.UpdateNamespace) (*domain.NamespaceID, error)
 }

@@ -1,9 +1,10 @@
 package validators
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"os"
+
+	"github.com/gin-gonic/gin"
 )
 
 func ValidateAuthorizationToken(c *gin.Context) bool {

@@ -1,9 +1,10 @@
 package applications
 
 import (
+	"fmt"
+
 	"cloud-app-hive/domain/commands"
 	"cloud-app-hive/domain/repositories"
-	"fmt"
 )
 
 type DeployApplicationUseCase struct {
