@@ -4,12 +4,17 @@ import (
 	"cloud-app-hive/config"
 	"cloud-app-hive/controllers"
 	"cloud-app-hive/database"
-	"cloud-app-hive/docs"
-	"context"
+	"os"
+
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	"os"
+)
+
+import (
+	"context"
+
+	"cloud-app-hive/docs"
 )
 
 var _ = context.Background()
@@ -21,22 +26,23 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = database.MigrateDatabase(db)
-	if err != nil {
+
+	if err = database.MigrateDatabase(db); err != nil {
 		panic(err)
 	}
 
-	r := gin.Default()
+	router := gin.Default()
 
 	docs.SwaggerInfo.Title = "Cloud App Hive API"
 	docs.SwaggerInfo.Description = "This API is used to manage applications in the cloud"
 	docs.SwaggerInfo.Version = "1.0"
-	docs.SwaggerInfo.BasePath = "/"
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	docs.SwaggerInfo.BasePath = "/api/v1"
 
-	r = controllers.InitRoutes(r)
+	router.GET("/openapi/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	err = r.Run(":" + os.Getenv("PORT"))
+	router = controllers.InitRoutes(router)
+
+	err = router.Run(":" + os.Getenv("PORT"))
 	if err != nil {
 		panic(err)
 	}
