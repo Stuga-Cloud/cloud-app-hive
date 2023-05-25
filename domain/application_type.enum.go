@@ -23,7 +23,6 @@ func (a *ApplicationType) Scan(value interface{}) error {
 	}
 
 	// Assuming the value from the database is stored as a string
-	// print value as string (its a []uint8
 	value = strings.ToUpper(string(value.([]uint8)))
 	if stringValue, ok := value.(string); ok {
 		*a = ApplicationType(stringValue)

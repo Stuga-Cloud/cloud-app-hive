@@ -1,14 +1,18 @@
 package database
 
 import (
+	"cloud-app-hive/domain"
+	"errors"
 	"fmt"
 	"os"
-
-	"cloud-app-hive/domain"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
+
+var ErrDatabaseConnection = errors.New("failed to connect to database")
+
+var ErrDatabaseMigration = errors.New("failed to migrate database")
 
 func ConnectToDatabase() (*gorm.DB, error) {
 	user := os.Getenv("MYSQL_USER")
@@ -16,18 +20,23 @@ func ConnectToDatabase() (*gorm.DB, error) {
 	host := os.Getenv("MYSQL_HOST")
 	port := os.Getenv("MYSQL_PORT")
 	database := os.Getenv("MYSQL_DATABASE")
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", user, password, host, port, database)
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	dsn := fmt.Sprintf(
+		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", user, password, host, port, database,
+	)
+
+	db, err := gorm.Open(mysql.Open(dsn))
 	if err != nil {
-		return nil, err
+		return nil, ErrDatabaseConnection
 	}
+
 	return db, nil
 }
 
 func MigrateDatabase(db *gorm.DB) error {
 	err := db.AutoMigrate(&domain.Application{}, &domain.Namespace{})
 	if err != nil {
-		return err
+		return ErrDatabaseMigration
 	}
+
 	return nil
 }
