@@ -5,26 +5,36 @@ import (
 
 	"cloud-app-hive/controllers/namespaces/requests"
 	"cloud-app-hive/controllers/validators"
-	"cloud-app-hive/database"
 	"cloud-app-hive/domain/commands"
-	"cloud-app-hive/repositories"
 	"cloud-app-hive/use_cases/namespaces"
 	"github.com/gin-gonic/gin"
 )
 
-// ApiError from https://github.com/go-playground/validator/issues/559
-type ApiError struct {
-	Param   string
-	Message string
+type NamespaceController struct {
+	createNamespaceUseCase   namespaces.CreateNamespaceUseCase
+	findNamespacesUseCase    namespaces.FindNamespacesUseCase
+	findNamespaceByIDUseCase namespaces.FindNamespaceByIDUseCase
 }
 
-func CreateNamespaceController(c *gin.Context) {
-	if validators.ValidateAuthorizationToken(c) == false {
+func NewNamespaceController(
+	createNamespaceUseCase namespaces.CreateNamespaceUseCase,
+	findNamespacesUseCase namespaces.FindNamespacesUseCase,
+	findNamespaceByIDUseCase namespaces.FindNamespaceByIDUseCase,
+) NamespaceController {
+	return NamespaceController{
+		createNamespaceUseCase:   createNamespaceUseCase,
+		findNamespacesUseCase:    findNamespacesUseCase,
+		findNamespaceByIDUseCase: findNamespaceByIDUseCase,
+	}
+}
+
+func (namespaceController NamespaceController) CreateNamespaceController(c *gin.Context) {
+	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
 		return
 	}
 
-	if validators.ValidateBodyIsNotNullNorEmpty(c) == false {
+	if !validators.ValidateBodyIsNotNullNorEmpty(c) {
 		validators.BodyIsNullOrEmptyResponse(c)
 		return
 	}
@@ -43,21 +53,12 @@ func CreateNamespaceController(c *gin.Context) {
 		return
 	}
 
-	db, err := database.ConnectToDatabase()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	}
-	createNamespaceUseCase := namespaces.CreateNamespaceUseCase{
-		NamespaceRepository: repositories.GORMNamespaceRepository{
-			Database: db,
-		},
-	}
 	createNamespace := commands.CreateNamespace{
 		Name:        createNamespaceRequest.Name,
 		Description: createNamespaceRequest.Description,
 		UserID:      createNamespaceRequest.UserID,
 	}
-	namespace, err := createNamespaceUseCase.Execute(createNamespace)
+	namespace, err := namespaceController.createNamespaceUseCase.Execute(createNamespace)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -68,8 +69,8 @@ func CreateNamespaceController(c *gin.Context) {
 	})
 }
 
-func FindNamespacesController(c *gin.Context) {
-	if validators.ValidateAuthorizationToken(c) == false {
+func (namespaceController NamespaceController) FindNamespacesController(c *gin.Context) {
+	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
 		return
 	}
@@ -89,22 +90,13 @@ func FindNamespacesController(c *gin.Context) {
 		return
 	}
 
-	db, err := database.ConnectToDatabase()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	}
-	getNamespacesUseCase := namespaces.FindNamespacesUseCase{
-		NamespaceRepository: repositories.GORMNamespaceRepository{
-			Database: db,
-		},
-	}
 	findNamespaces := commands.FindNamespaces{
 		Name:    findNamespacesRequest.Name,
 		UserID:  findNamespacesRequest.UserID,
 		Page:    findNamespacesRequest.Page,
 		PerPage: findNamespacesRequest.PerPage,
 	}
-	foundNamespaces, err := getNamespacesUseCase.Execute(findNamespaces)
+	foundNamespaces, err := namespaceController.findNamespacesUseCase.Execute(findNamespaces)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -115,24 +107,14 @@ func FindNamespacesController(c *gin.Context) {
 	})
 }
 
-func FindNamespaceByIDController(c *gin.Context) {
-	if validators.ValidateAuthorizationToken(c) == false {
+func (namespaceController NamespaceController) FindNamespaceByIDController(c *gin.Context) {
+	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
 		return
 	}
 
 	namespaceID := c.Param("id")
-
-	db, err := database.ConnectToDatabase()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	}
-	findNamespaceByIDUseCase := namespaces.FindNamespaceByIDUseCase{
-		NamespaceRepository: repositories.GORMNamespaceRepository{
-			Database: db,
-		},
-	}
-	foundNamespace, err := findNamespaceByIDUseCase.Execute(namespaceID)
+	foundNamespace, err := namespaceController.findNamespaceByIDUseCase.Execute(namespaceID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

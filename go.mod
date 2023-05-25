@@ -3,7 +3,11 @@ module cloud-app-hive
 go 1.18
 
 require (
+	github.com/gin-contrib/cors v1.4.0
 	github.com/go-playground/validator v9.31.0+incompatible
+	github.com/swaggo/files v1.0.1
+	github.com/swaggo/gin-swagger v1.6.0
+	github.com/swaggo/swag v1.16.1
 	gorm.io/driver/mysql v1.5.0
 	gorm.io/gorm v1.25.1
 	k8s.io/apimachinery v0.27.1
@@ -45,20 +49,12 @@ require (
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/go-openapi/spec v0.20.9 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
-	github.com/swaggo/files v1.0.1 // indirect
-	github.com/swaggo/gin-swagger v1.6.0 // indirect
-	github.com/swaggo/swag v1.16.1 // indirect
-	github.com/urfave/cli/v2 v2.25.3 // indirect
-	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 )

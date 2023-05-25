@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	applicationsUseCases "cloud-app-hive/use_cases/applications"
+	namespaceUseCases "cloud-app-hive/use_cases/namespaces"
 	"net/http"
 
 	"cloud-app-hive/controllers/applications"
@@ -9,14 +11,35 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func InitRoutes(router *gin.Engine) *gin.Engine {
-	router.GET("/health", HealthCheck)
-
+func InitRoutes(
+	router *gin.Engine,
+	createNamespaceUseCase namespaceUseCases.CreateNamespaceUseCase,
+	findNamespaceByIDUseCase namespaceUseCases.FindNamespaceByIDUseCase,
+	findNamespacesUseCase namespaceUseCases.FindNamespacesUseCase,
+	createApplicationUseCase applicationsUseCases.CreateApplicationUseCase,
+	updateApplicationUseCase applicationsUseCases.UpdateApplicationUseCase,
+	deleteApplicationUseCase applicationsUseCases.DeleteApplicationUseCase,
+	deployApplicationUseCase applicationsUseCases.DeployApplicationUseCase,
+	undeployApplicationUseCase applicationsUseCases.UndeployApplicationUseCase,
+	getApplicationLogsUseCase applicationsUseCases.GetApplicationLogsUseCase,
+	getApplicationMetricsUseCase applicationsUseCases.GetApplicationMetricsUseCase,
+	getApplicationStatusUseCase applicationsUseCases.GetApplicationStatusUseCase,
+) *gin.Engine {
 	api := router.Group("/api/v1")
 	{
 		api.GET("/health", HealthCheck)
-		namespaces.InitNamespacesRoutes(api)
-		applications.InitApplicationsRoutes(api)
+		namespaces.InitNamespacesRoutes(api, createNamespaceUseCase, findNamespaceByIDUseCase, findNamespacesUseCase)
+		applications.InitApplicationsRoutes(
+			api,
+			createApplicationUseCase,
+			updateApplicationUseCase,
+			deleteApplicationUseCase,
+			deployApplicationUseCase,
+			undeployApplicationUseCase,
+			getApplicationLogsUseCase,
+			getApplicationMetricsUseCase,
+			getApplicationStatusUseCase,
+		)
 	}
 
 	return router

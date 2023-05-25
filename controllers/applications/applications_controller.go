@@ -16,6 +16,39 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type ApplicationController struct {
+	createApplicationUseCase     applications.CreateApplicationUseCase
+	updateApplicationUseCase     applications.UpdateApplicationUseCase
+	deleteApplicationUseCase     applications.DeleteApplicationUseCase
+	deployApplicationUseCase     applications.DeployApplicationUseCase
+	undeployApplicationUseCase   applications.UndeployApplicationUseCase
+	getApplicationLogsUseCase    applications.GetApplicationLogsUseCase
+	getApplicationMetricsUseCase applications.GetApplicationMetricsUseCase
+	getApplicationStatusUseCase  applications.GetApplicationStatusUseCase
+}
+
+func NewApplicationController(
+	createApplicationUseCase applications.CreateApplicationUseCase,
+	updateApplicationUseCase applications.UpdateApplicationUseCase,
+	deleteApplicationUseCase applications.DeleteApplicationUseCase,
+	deployApplicationUseCase applications.DeployApplicationUseCase,
+	undeployApplicationUseCase applications.UndeployApplicationUseCase,
+	getApplicationLogsUseCase applications.GetApplicationLogsUseCase,
+	getApplicationMetricsUseCase applications.GetApplicationMetricsUseCase,
+	getApplicationStatusUseCase applications.GetApplicationStatusUseCase,
+) ApplicationController {
+	return ApplicationController{
+		createApplicationUseCase:     createApplicationUseCase,
+		updateApplicationUseCase:     updateApplicationUseCase,
+		deleteApplicationUseCase:     deleteApplicationUseCase,
+		deployApplicationUseCase:     deployApplicationUseCase,
+		undeployApplicationUseCase:   undeployApplicationUseCase,
+		getApplicationLogsUseCase:    getApplicationLogsUseCase,
+		getApplicationMetricsUseCase: getApplicationMetricsUseCase,
+		getApplicationStatusUseCase:  getApplicationStatusUseCase,
+	}
+}
+
 // CreateAndDeployApplicationController godoc
 // @Summary Creates in database and deploys an application
 // @Description creates in database and deploys an application on the cloud
@@ -28,7 +61,7 @@ import (
 // @Success 200 {object} responses.CreateApplicationResponse
 // @Failure 400 {object} errors.ApiError
 // @Router /applications [post]
-func CreateAndDeployApplicationController(c *gin.Context) {
+func (applicationController ApplicationController) CreateAndDeployApplicationController(c *gin.Context) {
 	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
 		return
@@ -119,7 +152,7 @@ func CreateAndDeployApplicationController(c *gin.Context) {
 	})
 }
 
-func UpdateApplicationByNameAndNamespaceController(c *gin.Context) {
+func (applicationController ApplicationController) UpdateApplicationByNameAndNamespaceController(c *gin.Context) {
 	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
 		return
@@ -206,7 +239,7 @@ func UpdateApplicationByNameAndNamespaceController(c *gin.Context) {
 }
 
 // DeleteApplicationByNameAndNamespaceController deletes an application by name and namespace in query params
-func DeleteApplicationByNameAndNamespaceController(c *gin.Context) {
+func (applicationController ApplicationController) DeleteApplicationByNameAndNamespaceController(c *gin.Context) {
 	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
 		return
@@ -258,7 +291,7 @@ func DeleteApplicationByNameAndNamespaceController(c *gin.Context) {
 }
 
 // GetMetricsByApplicationNameAndNamespaceController returns the metrics of an application by name and namespace in query params
-func GetMetricsByApplicationNameAndNamespaceController(c *gin.Context) {
+func (applicationController ApplicationController) GetMetricsByApplicationNameAndNamespaceController(c *gin.Context) {
 	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
 		return
@@ -290,7 +323,7 @@ func GetMetricsByApplicationNameAndNamespaceController(c *gin.Context) {
 }
 
 // GetLogsByApplicationNameAndNamespaceController returns the logs of an application by name and namespace in query params
-func GetLogsByApplicationNameAndNamespaceController(c *gin.Context) {
+func (applicationController ApplicationController) GetLogsByApplicationNameAndNamespaceController(c *gin.Context) {
 	if !validators.ValidateAuthorizationToken(c) {
 		validators.Unauthorized(c)
 
@@ -324,7 +357,7 @@ func GetLogsByApplicationNameAndNamespaceController(c *gin.Context) {
 }
 
 // GetStatusByApplicationNameAndNamespaceController returns the status of an application by name and namespace in query params
-func GetStatusByApplicationNameAndNamespaceController(c *gin.Context) {
+func (applicationController ApplicationController) GetStatusByApplicationNameAndNamespaceController(c *gin.Context) {
 	if validators.ValidateAuthorizationToken(c) == false {
 		validators.Unauthorized(c)
 		return
