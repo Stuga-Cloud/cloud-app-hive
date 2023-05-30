@@ -90,13 +90,13 @@ const docTemplate = `{
         "domain.ApplicationContainerSpecifications": {
             "type": "object",
             "properties": {
-                "cpu_limit": {
+                "cpuLimit": {
                     "$ref": "#/definitions/domain.ContainerLimit"
                 },
-                "memory_limit": {
+                "memoryLimit": {
                     "$ref": "#/definitions/domain.ContainerLimit"
                 },
-                "storage_limit": {
+                "storageLimit": {
                     "$ref": "#/definitions/domain.ContainerLimit"
                 }
             }
@@ -119,18 +119,18 @@ const docTemplate = `{
         "domain.ApplicationScalabilitySpecifications": {
             "type": "object",
             "required": [
-                "maximum_instance_count",
-                "minimum_instance_count",
+                "maximumInstanceCount",
+                "minimumInstanceCount",
                 "replicas"
             ],
             "properties": {
-                "is_auto_scaled": {
+                "isAutoScaled": {
                     "type": "boolean"
                 },
-                "maximum_instance_count": {
+                "maximumInstanceCount": {
                     "type": "integer"
                 },
-                "minimum_instance_count": {
+                "minimumInstanceCount": {
                     "type": "integer"
                 },
                 "replicas": {
@@ -224,14 +224,18 @@ const docTemplate = `{
         "requests.CreateApplicationRequest": {
             "type": "object",
             "required": [
+                "administratorEmail",
                 "image",
                 "name",
-                "namespace_id",
+                "namespaceId",
                 "port",
-                "user_id"
+                "userId"
             ],
             "properties": {
-                "application_type": {
+                "administratorEmail": {
+                    "type": "string"
+                },
+                "applicationType": {
                     "enum": [
                         "SINGLE_INSTANCE",
                         "LOAD_BALANCED"
@@ -242,10 +246,10 @@ const docTemplate = `{
                         }
                     ]
                 },
-                "container_specifications": {
+                "containerSpecifications": {
                     "$ref": "#/definitions/domain.ApplicationContainerSpecifications"
                 },
-                "environment_variables": {
+                "environmentVariables": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/domain.ApplicationEnvironmentVariable"
@@ -259,7 +263,7 @@ const docTemplate = `{
                     "maxLength": 50,
                     "minLength": 3
                 },
-                "namespace_id": {
+                "namespaceId": {
                     "type": "string"
                 },
                 "port": {
@@ -267,7 +271,7 @@ const docTemplate = `{
                     "maximum": 65535,
                     "minimum": 1
                 },
-                "scalability_specifications": {
+                "scalabilitySpecifications": {
                     "$ref": "#/definitions/domain.ApplicationScalabilitySpecifications"
                 },
                 "secrets": {
@@ -276,7 +280,7 @@ const docTemplate = `{
                         "$ref": "#/definitions/domain.ApplicationSecret"
                     }
                 },
-                "user_id": {
+                "userId": {
                     "type": "string"
                 }
             }
@@ -284,13 +288,13 @@ const docTemplate = `{
         "responses.ApplicationResponse": {
             "type": "object",
             "properties": {
-                "application_type": {
+                "applicationType": {
                     "$ref": "#/definitions/domain.ApplicationType"
                 },
-                "container_specifications": {
+                "containerSpecifications": {
                     "$ref": "#/definitions/domain.ApplicationContainerSpecifications"
                 },
-                "environment_variables": {
+                "environmentVariables": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/domain.ApplicationEnvironmentVariable"
@@ -305,13 +309,13 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "namespace_id": {
+                "namespaceId": {
                     "type": "string"
                 },
                 "port": {
                     "type": "integer"
                 },
-                "scalability_specifications": {
+                "scalabilitySpecifications": {
                     "$ref": "#/definitions/domain.ApplicationScalabilitySpecifications"
                 },
                 "secrets": {
@@ -320,7 +324,7 @@ const docTemplate = `{
                         "$ref": "#/definitions/domain.ApplicationSecret"
                     }
                 },
-                "user_id": {
+                "userId": {
                     "type": "string"
                 }
             }

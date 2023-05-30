@@ -23,20 +23,27 @@ func (applicationScalabilitySpecifications ApplicationScalabilitySpecifications)
 			"MinimumInstanceCount must be greater than or equal to 0",
 		)
 	}
-
 	if applicationScalabilitySpecifications.MaximumInstanceCount < 0 {
 		return errors.NewInvalidApplicationScalabilitySpecificationsError(
 			"MaximumInstanceCount must be greater than or equal to 0",
 		)
 	}
-
 	if applicationScalabilitySpecifications.Replicas < 0 {
 		return errors.NewInvalidApplicationScalabilitySpecificationsError("Replicas must be greater than or equal to 0")
 	}
-
 	if applicationScalabilitySpecifications.MinimumInstanceCount > applicationScalabilitySpecifications.MaximumInstanceCount {
 		return errors.NewInvalidApplicationScalabilitySpecificationsError(
 			"MinimumInstanceCount must be less than or equal to MaximumInstanceCount",
+		)
+	}
+	if applicationScalabilitySpecifications.Replicas < applicationScalabilitySpecifications.MinimumInstanceCount {
+		return errors.NewInvalidApplicationScalabilitySpecificationsError(
+			"Replicas must be greater than or equal to MinimumInstanceCount",
+		)
+	}
+	if applicationScalabilitySpecifications.Replicas > applicationScalabilitySpecifications.MaximumInstanceCount {
+		return errors.NewInvalidApplicationScalabilitySpecificationsError(
+			"Replicas must be less than or equal to MaximumInstanceCount",
 		)
 	}
 	return nil

@@ -9,7 +9,7 @@ import (
 type CreateNamespaceRequest struct {
 	Name        string `json:"name" binding:"required,min=3,max=100" validate:"IsACustomStringForSubdomainValidation"`
 	Description string `json:"description" binding:"required,min=3,max=1000"`
-	UserID      string `json:"user_id" binding:"required"`
+	UserID      string `json:"userId" binding:"required"`
 }
 
 func ValidateCreateNamespaceRequest(createNamespaceRequest CreateNamespaceRequest) error {

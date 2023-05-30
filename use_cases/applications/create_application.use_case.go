@@ -29,7 +29,7 @@ func (createApplicationUseCase CreateApplicationUseCase) Execute(createApplicati
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while finding applications by namespace id and user id: %w", err)
 	}
-	if foundUserAndNamespaceApplications != nil {
+	if len(foundUserAndNamespaceApplications) > 0 {
 		for _, foundApplication := range foundUserAndNamespaceApplications {
 			if foundApplication.Name == createApplication.Name {
 				return nil, nil, fmt.Errorf("application %s already exists in namespace %s", createApplication.Name, createApplication.NamespaceID)

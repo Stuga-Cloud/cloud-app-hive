@@ -10,15 +10,18 @@ import (
 // swagger:model CreateApplicationRequest
 type CreateApplicationRequest struct {
 	Name                      string                                      `json:"name" binding:"required,min=3,max=50" validate:"IsACustomStringForSubdomainValidation"`
+	Description               string                                      `json:"description" binding:"omitempty,min=3,max=50"`
 	Image                     string                                      `json:"image" binding:"required"`
-	NamespaceID               string                                      `json:"namespace_id" binding:"required"`
-	UserID                    string                                      `json:"user_id" binding:"required"`
+	NamespaceID               string                                      `json:"namespaceId" binding:"required"`
+	UserID                    string                                      `json:"userId" binding:"required"`
 	Port                      uint32                                      `json:"port" binding:"required,min=1,max=65535"`
-	ApplicationType           domain.ApplicationType                      `json:"application_type" binding:"oneof=SINGLE_INSTANCE LOAD_BALANCED"`
-	EnvironmentVariables      domain.ApplicationEnvironmentVariables      `json:"environment_variables"`
+	Zone                      string                                      `json:"zone"`
+	ApplicationType           domain.ApplicationType                      `json:"applicationType" binding:"oneof=SINGLE_INSTANCE LOAD_BALANCED" validate:"required"`
+	EnvironmentVariables      domain.ApplicationEnvironmentVariables      `json:"environmentVariables"`
 	Secrets                   domain.ApplicationSecrets                   `json:"secrets"`
-	ContainerSpecifications   domain.ApplicationContainerSpecifications   `json:"container_specifications"`
-	ScalabilitySpecifications domain.ApplicationScalabilitySpecifications `json:"scalability_specifications"`
+	ContainerSpecifications   domain.ApplicationContainerSpecifications   `json:"containerSpecifications" binding:"required"`
+	ScalabilitySpecifications domain.ApplicationScalabilitySpecifications `json:"scalabilitySpecifications" binding:"required"`
+	AdministratorEmail        string                                      `json:"administratorEmail" binding:"required,email"`
 }
 
 func ValidateCreateApplicationRequest(createApplicationRequest CreateApplicationRequest) error {
@@ -38,6 +41,7 @@ func ValidateCreateApplicationRequest(createApplicationRequest CreateApplication
 		return err
 	}
 
+	createApplicationRequest.ContainerSpecifications.SetDefaultValues()
 	err = createApplicationRequest.ScalabilitySpecifications.Validate()
 	if err != nil {
 		return err

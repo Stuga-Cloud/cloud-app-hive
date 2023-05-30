@@ -2,6 +2,7 @@ package main
 
 import (
 	"cloud-app-hive/repositories"
+	"cloud-app-hive/schedulers"
 	"cloud-app-hive/use_cases/applications"
 	"cloud-app-hive/use_cases/namespaces"
 	"os"
@@ -78,11 +79,16 @@ func initDependencies(router *gin.Engine) {
 		Database: db,
 	}
 	containerManagerRepository := repositories.KubernetesContainerManagerRepository{}
+	findApplicationsUseCase := applications.FindApplicationsUseCase{
+		ApplicationRepository: applicationRepository,
+	}
 	createApplicationUseCase := applications.CreateApplicationUseCase{
 		ApplicationRepository: applicationRepository,
+		NamespaceRepository:   namespaceRepository,
 	}
 	updateApplicationUseCase := applications.UpdateApplicationUseCase{
 		ApplicationRepository: applicationRepository,
+		NamespaceRepository:   namespaceRepository,
 	}
 	deleteApplicationUseCase := applications.DeleteApplicationUseCase{
 		ApplicationRepository: applicationRepository,
@@ -102,11 +108,12 @@ func initDependencies(router *gin.Engine) {
 	getApplicationStatusUseCase := applications.GetApplicationStatusUseCase{
 		ContainerManagerRepository: containerManagerRepository,
 	}
-	router = controllers.InitRoutes(
+	controllers.InitRoutes(
 		router,
 		createNamespaceUseCase,
 		findNamespaceByIDUseCase,
 		findNamespacesUseCase,
+		findApplicationsUseCase,
 		createApplicationUseCase,
 		updateApplicationUseCase,
 		deleteApplicationUseCase,
@@ -116,4 +123,6 @@ func initDependencies(router *gin.Engine) {
 		getApplicationMetricsUseCase,
 		getApplicationStatusUseCase,
 	)
+
+	schedulers.InitSchedulers()
 }

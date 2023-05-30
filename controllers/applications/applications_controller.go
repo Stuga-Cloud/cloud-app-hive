@@ -1,14 +1,14 @@
 package applications
 
 import (
+	validators "cloud-app-hive/validators"
 	"fmt"
 	"net/http"
 
 	"cloud-app-hive/controllers/applications/requests"
 	"cloud-app-hive/controllers/applications/responses"
 	"cloud-app-hive/controllers/errors"
-	"cloud-app-hive/controllers/validators"
-	"cloud-app-hive/database"
+	controllerValidators "cloud-app-hive/controllers/validators"
 	"cloud-app-hive/domain/commands"
 	"cloud-app-hive/repositories"
 	"cloud-app-hive/use_cases/applications"
@@ -17,6 +17,7 @@ import (
 )
 
 type ApplicationController struct {
+	findApplicationsUseCase      applications.FindApplicationsUseCase
 	createApplicationUseCase     applications.CreateApplicationUseCase
 	updateApplicationUseCase     applications.UpdateApplicationUseCase
 	deleteApplicationUseCase     applications.DeleteApplicationUseCase
@@ -28,6 +29,7 @@ type ApplicationController struct {
 }
 
 func NewApplicationController(
+	findApplicationsUseCase applications.FindApplicationsUseCase,
 	createApplicationUseCase applications.CreateApplicationUseCase,
 	updateApplicationUseCase applications.UpdateApplicationUseCase,
 	deleteApplicationUseCase applications.DeleteApplicationUseCase,
@@ -38,6 +40,7 @@ func NewApplicationController(
 	getApplicationStatusUseCase applications.GetApplicationStatusUseCase,
 ) ApplicationController {
 	return ApplicationController{
+		findApplicationsUseCase:      findApplicationsUseCase,
 		createApplicationUseCase:     createApplicationUseCase,
 		updateApplicationUseCase:     updateApplicationUseCase,
 		deleteApplicationUseCase:     deleteApplicationUseCase,
@@ -62,8 +65,8 @@ func NewApplicationController(
 // @Failure 400 {object} errors.ApiError
 // @Router /applications [post]
 func (applicationController ApplicationController) CreateAndDeployApplicationController(c *gin.Context) {
-	if !validators.ValidateAuthorizationToken(c) {
-		validators.Unauthorized(c)
+	if !controllerValidators.ValidateAuthorizationToken(c) {
+		controllerValidators.Unauthorized(c)
 		return
 	}
 
@@ -92,34 +95,30 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 		return
 	}
 
-	db, err := database.ConnectToDatabase()
+	err = validators.ValidateEmail(createApplicationRequest.AdministratorEmail)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"validation-errors": fmt.Errorf("error while validating create application request: %w", err).Error(),
+		})
+		return
 	}
-
-	createApplicationUseCase := applications.CreateApplicationUseCase{
-		ApplicationRepository: repositories.GORMApplicationRepository{
-			Database: db,
-		},
-		NamespaceRepository: repositories.GORMNamespaceRepository{
-			Database: db,
-		},
-	}
-
 	createApplication := commands.CreateApplication{
 		Name:                      createApplicationRequest.Name,
+		Description:               createApplicationRequest.Description,
 		Image:                     createApplicationRequest.Image,
 		NamespaceID:               createApplicationRequest.NamespaceID,
 		UserID:                    createApplicationRequest.UserID,
 		Port:                      createApplicationRequest.Port,
+		Zone:                      createApplicationRequest.Zone,
 		ApplicationType:           createApplicationRequest.ApplicationType,
 		EnvironmentVariables:      createApplicationRequest.EnvironmentVariables,
 		Secrets:                   createApplicationRequest.Secrets,
 		ContainerSpecifications:   createApplicationRequest.ContainerSpecifications,
 		ScalabilitySpecifications: createApplicationRequest.ScalabilitySpecifications,
+		AdministratorEmail:        createApplicationRequest.AdministratorEmail,
 	}
 
-	application, namespace, err := createApplicationUseCase.Execute(createApplication)
+	application, namespace, err := applicationController.createApplicationUseCase.Execute(createApplication)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -152,9 +151,50 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 	})
 }
 
+// FindApplicationsController godoc
+// @Summary Finds all applications
+// @Description finds all applications
+// @ID find-applications
+// @Tags Applications
+// @Accept  json
+// @Produce  json
+// @Param Authorization header string true "Authorization Token"
+// @Success 200 {array} Application
+// @Failure 400 {object} errorsApiError
+// @Router /applications [get]
+func (applicationController ApplicationController) FindApplicationsController(c *gin.Context) {
+	if !controllerValidators.ValidateAuthorizationToken(c) {
+		controllerValidators.Unauthorized(c)
+		return
+	}
+
+	var findApplicationsRequest requests.FindApplicationsRequest
+	if err := c.ShouldBindQuery(&findApplicationsRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": err.Error()})
+		return
+	}
+
+	findApplicationsCommand := commands.FindApplications{
+		Name:            findApplicationsRequest.Name,
+		Image:           findApplicationsRequest.Image,
+		NamespaceID:     findApplicationsRequest.NamespaceID,
+		ApplicationType: findApplicationsRequest.ApplicationType,
+		IsAutoScaled:    findApplicationsRequest.IsAutoScaled,
+		Page:            findApplicationsRequest.Page,
+		Limit:           findApplicationsRequest.Limit,
+	}
+	applications, err := applicationController.findApplicationsUseCase.Execute(findApplicationsCommand)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"applications": applications})
+}
+
 func (applicationController ApplicationController) UpdateApplicationByNameAndNamespaceController(c *gin.Context) {
-	if !validators.ValidateAuthorizationToken(c) {
-		validators.Unauthorized(c)
+	if !controllerValidators.ValidateAuthorizationToken(c) {
+		controllerValidators.Unauthorized(c)
 		return
 	}
 
@@ -165,9 +205,9 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 	}
 
 	applicationID := c.Param("id")
-	userID := c.Query("user_id")
+	userID := c.Query("userId")
 	if applicationID == "" || userID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": "Application ID url param and user_id query param are required"})
+		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": "Application ID url param and userId query param are required"})
 		return
 	}
 
@@ -179,17 +219,12 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 		return
 	}
 
-	db, err := database.ConnectToDatabase()
+	err = validators.ValidateEmail(updateApplicationRequest.AdministratorEmail)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	}
-	updateApplicationUseCase := applications.UpdateApplicationUseCase{
-		ApplicationRepository: repositories.GORMApplicationRepository{
-			Database: db,
-		},
-		NamespaceRepository: repositories.GORMNamespaceRepository{
-			Database: db,
-		},
+		c.JSON(http.StatusBadRequest, gin.H{
+			"validation-errors": fmt.Errorf("error while validating update application request: %w", err).Error(),
+		})
+		return
 	}
 	updateApplication := commands.UpdateApplication{
 		UserID:                    userID,
@@ -201,8 +236,9 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 		Secrets:                   nil,
 		ContainerSpecifications:   updateApplicationRequest.ContainerSpecifications,
 		ScalabilitySpecifications: updateApplicationRequest.ScalabilitySpecifications,
+		AdministratorEmail:        updateApplicationRequest.AdministratorEmail,
 	}
-	application, namespace, err := updateApplicationUseCase.Execute(applicationID, updateApplication)
+	application, namespace, err := applicationController.updateApplicationUseCase.Execute(applicationID, updateApplication)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   err.Error(),
@@ -212,9 +248,6 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 		return
 	}
 
-	deployApplicationUseCase := applications.DeployApplicationUseCase{
-		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
-	}
 	applyApplication := commands.ApplyApplication{
 		Name:                      application.Name,
 		Image:                     application.Image,
@@ -226,7 +259,7 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 		ContainerSpecifications:   *application.ContainerSpecifications,
 		ScalabilitySpecifications: *application.ScalabilitySpecifications,
 	}
-	err = deployApplicationUseCase.Execute(applyApplication)
+	err = applicationController.deployApplicationUseCase.Execute(applyApplication)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -240,45 +273,33 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 
 // DeleteApplicationByNameAndNamespaceController deletes an application by name and namespace in query params
 func (applicationController ApplicationController) DeleteApplicationByNameAndNamespaceController(c *gin.Context) {
-	if !validators.ValidateAuthorizationToken(c) {
-		validators.Unauthorized(c)
+	if !controllerValidators.ValidateAuthorizationToken(c) {
+		controllerValidators.Unauthorized(c)
 		return
 	}
 
 	applicationID := c.Param("id")
-	userID := c.Query("user_id")
+	userID := c.Query("userId")
 	if applicationID == "" || userID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Application ID url param and 'user_id' query param must be provided"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Application ID url param and 'userId' query param must be provided"})
 		return
 	}
 
-	db, err := database.ConnectToDatabase()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	}
-	deleteApplicationUseCase := applications.DeleteApplicationUseCase{
-		ApplicationRepository: repositories.GORMApplicationRepository{
-			Database: db,
-		},
-	}
 	deleteApplication := commands.DeleteApplication{
 		ID:     applicationID,
 		UserID: userID,
 	}
-	deletedApplication, err := deleteApplicationUseCase.Execute(deleteApplication)
+	deletedApplication, err := applicationController.deleteApplicationUseCase.Execute(deleteApplication)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	undeployApplicationUseCase := applications.UndeployApplicationUseCase{
-		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
-	}
 	unapplyApplication := commands.UnapplyApplication{
 		Name:      deletedApplication.Name,
 		Namespace: deletedApplication.Namespace.Name,
 	}
-	err = undeployApplicationUseCase.Execute(unapplyApplication)
+	err = applicationController.undeployApplicationUseCase.Execute(unapplyApplication)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -292,8 +313,8 @@ func (applicationController ApplicationController) DeleteApplicationByNameAndNam
 
 // GetMetricsByApplicationNameAndNamespaceController returns the metrics of an application by name and namespace in query params
 func (applicationController ApplicationController) GetMetricsByApplicationNameAndNamespaceController(c *gin.Context) {
-	if !validators.ValidateAuthorizationToken(c) {
-		validators.Unauthorized(c)
+	if !controllerValidators.ValidateAuthorizationToken(c) {
+		controllerValidators.Unauthorized(c)
 		return
 	}
 
@@ -304,14 +325,11 @@ func (applicationController ApplicationController) GetMetricsByApplicationNameAn
 		return
 	}
 
-	getMetricsByApplicationNameAndNamespaceUseCase := applications.GetApplicationMetricsUseCase{
-		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
-	}
 	application := commands.GetApplicationMetrics{
 		Name:      applicationName,
 		Namespace: applicationNamespace,
 	}
-	metrics, err := getMetricsByApplicationNameAndNamespaceUseCase.Execute(application)
+	metrics, err := applicationController.getApplicationMetricsUseCase.Execute(application)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error while getting metrics": err.Error()})
 		return
@@ -324,9 +342,8 @@ func (applicationController ApplicationController) GetMetricsByApplicationNameAn
 
 // GetLogsByApplicationNameAndNamespaceController returns the logs of an application by name and namespace in query params
 func (applicationController ApplicationController) GetLogsByApplicationNameAndNamespaceController(c *gin.Context) {
-	if !validators.ValidateAuthorizationToken(c) {
-		validators.Unauthorized(c)
-
+	if !controllerValidators.ValidateAuthorizationToken(c) {
+		controllerValidators.Unauthorized(c)
 		return
 	}
 
@@ -338,14 +355,11 @@ func (applicationController ApplicationController) GetLogsByApplicationNameAndNa
 		return
 	}
 
-	getLogsByApplicationNameAndNamespaceUseCase := applications.GetApplicationLogsUseCase{
-		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
-	}
 	application := commands.GetApplicationLogs{
 		Name:      applicationName,
 		Namespace: applicationNamespace,
 	}
-	logs, err := getLogsByApplicationNameAndNamespaceUseCase.Execute(application)
+	logs, err := applicationController.getApplicationLogsUseCase.Execute(application)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -358,8 +372,8 @@ func (applicationController ApplicationController) GetLogsByApplicationNameAndNa
 
 // GetStatusByApplicationNameAndNamespaceController returns the status of an application by name and namespace in query params
 func (applicationController ApplicationController) GetStatusByApplicationNameAndNamespaceController(c *gin.Context) {
-	if validators.ValidateAuthorizationToken(c) == false {
-		validators.Unauthorized(c)
+	if !controllerValidators.ValidateAuthorizationToken(c) {
+		controllerValidators.Unauthorized(c)
 		return
 	}
 
@@ -371,14 +385,11 @@ func (applicationController ApplicationController) GetStatusByApplicationNameAnd
 	}
 
 	// TODO -> Get status from kubernetes
-	getStatusByApplicationNameAndNamespaceUseCase := applications.GetApplicationStatusUseCase{
-		ContainerManagerRepository: repositories.KubernetesContainerManagerRepository{},
-	}
 	application := commands.GetApplicationStatus{
 		Name:      applicationName,
 		Namespace: applicationNamespace,
 	}
-	status, err := getStatusByApplicationNameAndNamespaceUseCase.Execute(application)
+	status, err := applicationController.getApplicationStatusUseCase.Execute(application)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -8,7 +8,7 @@ import (
 // FindNamespacesRequest is a struct that represents the request body for finding a namespace
 type FindNamespacesRequest struct {
 	Name    string `json:"name" validate:"IsACustomStringForSubdomainValidation"`
-	UserID  string `json:"user_id"`
+	UserID  string `json:"userId"`
 	Page    int    `json:"page"`
 	PerPage int    `json:"per_page"`
 }

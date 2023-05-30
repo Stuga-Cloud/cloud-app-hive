@@ -11,11 +11,12 @@ type UpdateApplicationRequest struct {
 	Description               string                                      `json:"description"`
 	Image                     string                                      `json:"image" binding:"required"`
 	Port                      uint32                                      `json:"port" binding:"required,min=1,max=65535"`
-	ApplicationType           domain.ApplicationType                      `json:"application_type" binding:"oneof=SINGLE_INSTANCE LOAD_BALANCED"`
-	EnvironmentVariables      domain.ApplicationEnvironmentVariables      `json:"environment_variables"`
+	ApplicationType           domain.ApplicationType                      `json:"applicationType" binding:"oneof=SINGLE_INSTANCE LOAD_BALANCED"`
+	EnvironmentVariables      domain.ApplicationEnvironmentVariables      `json:"environmentVariables"`
 	Secrets                   domain.ApplicationSecrets                   `json:"secrets"`
-	ContainerSpecifications   domain.ApplicationContainerSpecifications   `json:"container_specifications"`
-	ScalabilitySpecifications domain.ApplicationScalabilitySpecifications `json:"scalability_specifications"`
+	ContainerSpecifications   domain.ApplicationContainerSpecifications   `json:"containerSpecifications"`
+	ScalabilitySpecifications domain.ApplicationScalabilitySpecifications `json:"scalabilitySpecifications"`
+	AdministratorEmail        string                                      `json:"administratorEmail" binding:"required,email"`
 }
 
 func ValidateUpdateApplicationRequest(updateApplicationRequest UpdateApplicationRequest) error {

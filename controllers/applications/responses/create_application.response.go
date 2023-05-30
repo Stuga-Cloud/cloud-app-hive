@@ -15,14 +15,14 @@ type ApplicationResponse struct {
 	ID                        string                                       `json:"id"`
 	Name                      string                                       `json:"name"`
 	Image                     string                                       `json:"image"`
-	NamespaceID               string                                       `json:"namespace_id"`
-	UserID                    string                                       `json:"user_id"`
+	NamespaceID               string                                       `json:"namespaceId"`
+	UserID                    string                                       `json:"userId"`
 	Port                      uint32                                       `json:"port"`
-	ApplicationType           domain.ApplicationType                       `json:"application_type"`
-	EnvironmentVariables      *domain.ApplicationEnvironmentVariables      `json:"environment_variables"`
+	ApplicationType           domain.ApplicationType                       `json:"applicationType"`
+	EnvironmentVariables      *domain.ApplicationEnvironmentVariables      `json:"environmentVariables"`
 	Secrets                   *domain.ApplicationSecrets                   `json:"secrets"`
-	ContainerSpecifications   *domain.ApplicationContainerSpecifications   `json:"container_specifications"`
-	ScalabilitySpecifications *domain.ApplicationScalabilitySpecifications `json:"scalability_specifications"`
+	ContainerSpecifications   *domain.ApplicationContainerSpecifications   `json:"containerSpecifications"`
+	ScalabilitySpecifications *domain.ApplicationScalabilitySpecifications `json:"scalabilitySpecifications"`
 }
 
 // ApplicationDomainToResponse is a method that converts a domain.Application to an ApplicationResponse

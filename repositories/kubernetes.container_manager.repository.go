@@ -5,9 +5,11 @@ import (
 	customErrors "cloud-app-hive/controllers/errors"
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/commands"
+	"cloud-app-hive/utils"
 	"context"
 	"fmt"
 	"io"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"os"
 	"strings"
 
@@ -50,6 +52,11 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationMetri
 		return nil, err
 	}
 
+	clientSet, err := containerManager.connectToKubernetesAPI()
+	if err != nil {
+		return nil, err
+	}
+
 	metrics, err := metricsClientset.MetricsV1beta1().PodMetricses(applicationNamespace).List(
 		context.Background(), metav1.ListOptions{},
 	)
@@ -61,17 +68,41 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationMetri
 
 	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
 
+	// Get the Deployment object
+	deployment, err := clientSet.AppsV1().Deployments(applicationNamespace).Get(
+		context.Background(), deploymentName, metav1.GetOptions{},
+	)
+	if err != nil {
+		return nil, customErrors.ContainerManagerError{
+			Message: fmt.Sprintf("Error while retrieving Deployment object : %s", err.Error()),
+		}
+	}
+
 	var applicationMetrics []domain.ApplicationMetrics
 	for _, metric := range metrics.Items {
 		if strings.HasPrefix(metric.Name, deploymentName) {
 			for _, container := range metric.Containers {
 				var currentApplicationMetrics domain.ApplicationMetrics
+				currentApplicationMetrics.PodName = metric.Name
 				currentApplicationMetrics.Name = container.Name
 				currentApplicationMetrics.CPUUsage = container.Usage.Cpu().String()
 				currentApplicationMetrics.MemoryUsage = container.Usage.Memory().String()
-				currentApplicationMetrics.StorageUsage = container.Usage.Storage().String()
 				currentApplicationMetrics.EphemeralStorageUsage = container.Usage.StorageEphemeral().String()
 				currentApplicationMetrics.PodsUsage = container.Usage.Pods().String()
+
+				// Get deployment limits
+				// Get resource limits from the Deployment object
+				for _, containerSpec := range deployment.Spec.Template.Spec.Containers {
+					if containerSpec.Name == container.Name {
+						if containerSpec.Resources.Limits != nil {
+							currentApplicationMetrics.MaxCPUUsage = containerSpec.Resources.Limits.Cpu().String()
+							currentApplicationMetrics.MaxMemoryUsage = containerSpec.Resources.Limits.Memory().String()
+							currentApplicationMetrics.MaxEphemeralStorage = containerSpec.Resources.Limits.Storage().String()
+						}
+						break
+					}
+				}
+
 				applicationMetrics = append(applicationMetrics, currentApplicationMetrics)
 			}
 		}
@@ -187,8 +218,15 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 		replicas = deployApplication.ScalabilitySpecifications.Replicas
 	}
 	// TODO : Add CPU, Memory and Storage limits
-	// cpuLimit := deployApplication.ContainerSpecifications.CpuLimit
-	// memoryLimit := deployApplication.ContainerSpecifications.MemoryLimit
+	rawCpuLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.CPULimit.Val, deployApplication.ContainerSpecifications.CPULimit.Unit)
+	rawMemoryLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.MemoryLimit.Val, deployApplication.ContainerSpecifications.MemoryLimit.Unit)
+	rawEphemeralStorageLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.EphemeralStorageLimit.Val, deployApplication.ContainerSpecifications.EphemeralStorageLimit.Unit)
+	fmt.Println("Raw ephemeral storage limit : ", rawEphemeralStorageLimit)
+	cpuLimit := resource.MustParse(utils.ConvertReadableHumanValueAndUnitToK8sResource(rawCpuLimit))
+	memoryLimit := resource.MustParse(utils.ConvertReadableHumanValueAndUnitToK8sResource(rawMemoryLimit))
+	ephemeralStorageLimit := resource.MustParse(utils.ConvertReadableHumanValueAndUnitToK8sResource(rawEphemeralStorageLimit))
+	fmt.Println("Ephemeral storage limit : ", ephemeralStorageLimit)
+
 	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
 
 	deployment := &v12.Deployment{
@@ -216,12 +254,13 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 							Image: applicationImage,
 							// Declare environment variables from deployApplication.EnvironmentVariables array
 							Env: applicationEnvironmentVariables,
-							//Resources: v1.ResourceRequirements{ TODO : make it work and set default values
-							//	Requests: v1.ResourceList{
-							//		v1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%d%s", cpuLimit.Val, cpuLimit.Unit.String())),
-							//		v1.ResourceMemory: resource.MustParse(fmt.Sprintf("%d%s", memoryLimit.Val, memoryLimit.Unit.String())),
-							//	},
-							//},
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceCPU:              cpuLimit,
+									v1.ResourceMemory:           memoryLimit,
+									v1.ResourceEphemeralStorage: ephemeralStorageLimit,
+								},
+							},
 						},
 					},
 				},
@@ -254,6 +293,36 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 
 	fmt.Println("Deployment created successfully : " + deploymentName + " in namespace " + applicationNamespace)
 	return nil
+}
+
+func FrenchReadableResourceUnitToKubernetesCPUUnit(resourceUnit domain.ContainerLimitUnit) string {
+	switch resourceUnit {
+	case domain.MB:
+		return "M"
+	case domain.GB:
+		return "G"
+	case domain.TB:
+		return "T"
+	case domain.KB:
+		return "K"
+	default:
+		return "K"
+	}
+}
+
+func FrenchReadableResourceUnitToKubernetesMemoryUnit(resourceUnit domain.ContainerLimitUnit) string {
+	switch resourceUnit {
+	case domain.MB:
+		return "Mi"
+	case domain.GB:
+		return "Gi"
+	case domain.TB:
+		return "Ti"
+	case domain.KB:
+		return "Ki"
+	default:
+		return "Ki"
+	}
 }
 
 func (containerManager KubernetesContainerManagerRepository) applyService(clientset *kubernetes.Clientset, deployApplication commands.ApplyApplication) error {
@@ -390,21 +459,6 @@ func (containerManager KubernetesContainerManagerRepository) applyIngress(client
 		}
 	}
 
-	for {
-		ingress, err := clientset.NetworkingV1().Ingresses(applicationNamespace).Get(context.Background(), ingressName, metav1.GetOptions{})
-		if err != nil {
-			return customErrors.ContainerManagerApplicationDeploymentError{
-				Message:         fmt.Sprintf("Error while getting ingress : %s", err.Error()),
-				ApplicationName: deployApplication.Name,
-				Namespace:       deployApplication.Namespace,
-				Image:           deployApplication.Image,
-			}
-		}
-		if len(ingress.Status.LoadBalancer.Ingress) > 0 {
-			break
-		}
-	}
-
 	fmt.Println("Ingress created successfully : " + ingressName + " in namespace " + applicationNamespace)
 	return nil
 }
@@ -481,6 +535,7 @@ func (containerManager KubernetesContainerManagerRepository) UnapplyApplication(
 	}
 
 	if err = containerManager.deleteIngress(clientset, unapplyApplication); err != nil {
+		// Redeploy application if ingress deletion failed ?
 		return customErrors.ContainerManagerError{
 			Message: fmt.Sprintf("Deleting ingress while unapplying application failed : %s", err.Error()),
 		}

@@ -17,5 +17,9 @@ func (getApplicationMetricsUseCase GetApplicationMetricsUseCase) Execute(applica
 	if err != nil {
 		return nil, fmt.Errorf("error getting application metrics: %w", err)
 	}
-	return metrics, nil
+	readableMetrics := make([]domain.ApplicationMetrics, len(metrics))
+	for i, podMetrics := range metrics {
+		readableMetrics[i] = podMetrics.WithRealLifeReadableUnits()
+	}
+	return readableMetrics, nil
 }

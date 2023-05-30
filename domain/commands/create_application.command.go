@@ -16,6 +16,7 @@ type CreateApplication struct {
 	Secrets                   domain.ApplicationSecrets
 	ContainerSpecifications   domain.ApplicationContainerSpecifications
 	ScalabilitySpecifications domain.ApplicationScalabilitySpecifications
+	AdministratorEmail        string
 }
 
 // ToDomain converts the command to a domain.Application

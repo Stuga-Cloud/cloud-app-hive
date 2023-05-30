@@ -13,4 +13,5 @@ type UpdateApplication struct {
 	Secrets                   domain.ApplicationSecrets
 	ContainerSpecifications   domain.ApplicationContainerSpecifications
 	ScalabilitySpecifications domain.ApplicationScalabilitySpecifications
+	AdministratorEmail        string
 }

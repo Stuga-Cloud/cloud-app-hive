@@ -1,11 +1,11 @@
 definitions:
   domain.ApplicationContainerSpecifications:
     properties:
-      cpu_limit:
+      cpuLimit:
         $ref: '#/definitions/domain.ContainerLimit'
-      memory_limit:
+      memoryLimit:
         $ref: '#/definitions/domain.ContainerLimit'
-      storage_limit:
+      storageLimit:
         $ref: '#/definitions/domain.ContainerLimit'
     type: object
   domain.ApplicationEnvironmentVariable:
@@ -20,17 +20,17 @@ definitions:
     type: object
   domain.ApplicationScalabilitySpecifications:
     properties:
-      is_auto_scaled:
+      isAutoScaled:
         type: boolean
-      maximum_instance_count:
+      maximumInstanceCount:
         type: integer
-      minimum_instance_count:
+      minimumInstanceCount:
         type: integer
       replicas:
         type: integer
     required:
-    - maximum_instance_count
-    - minimum_instance_count
+    - maximumInstanceCount
+    - minimumInstanceCount
     - replicas
     type: object
   domain.ApplicationSecret:
@@ -92,15 +92,17 @@ definitions:
     type: object
   requests.CreateApplicationRequest:
     properties:
-      application_type:
+      administratorEmail:
+        type: string
+      applicationType:
         allOf:
         - $ref: '#/definitions/domain.ApplicationType'
         enum:
         - SINGLE_INSTANCE
         - LOAD_BALANCED
-      container_specifications:
+      containerSpecifications:
         $ref: '#/definitions/domain.ApplicationContainerSpecifications'
-      environment_variables:
+      environmentVariables:
         items:
           $ref: '#/definitions/domain.ApplicationEnvironmentVariable'
         type: array
@@ -110,34 +112,35 @@ definitions:
         maxLength: 50
         minLength: 3
         type: string
-      namespace_id:
+      namespaceId:
         type: string
       port:
         maximum: 65535
         minimum: 1
         type: integer
-      scalability_specifications:
+      scalabilitySpecifications:
         $ref: '#/definitions/domain.ApplicationScalabilitySpecifications'
       secrets:
         items:
           $ref: '#/definitions/domain.ApplicationSecret'
         type: array
-      user_id:
+      userId:
         type: string
     required:
+    - administratorEmail
     - image
     - name
-    - namespace_id
+    - namespaceId
     - port
-    - user_id
+    - userId
     type: object
   responses.ApplicationResponse:
     properties:
-      application_type:
+      applicationType:
         $ref: '#/definitions/domain.ApplicationType'
-      container_specifications:
+      containerSpecifications:
         $ref: '#/definitions/domain.ApplicationContainerSpecifications'
-      environment_variables:
+      environmentVariables:
         items:
           $ref: '#/definitions/domain.ApplicationEnvironmentVariable'
         type: array
@@ -147,17 +150,17 @@ definitions:
         type: string
       name:
         type: string
-      namespace_id:
+      namespaceId:
         type: string
       port:
         type: integer
-      scalability_specifications:
+      scalabilitySpecifications:
         $ref: '#/definitions/domain.ApplicationScalabilitySpecifications'
       secrets:
         items:
           $ref: '#/definitions/domain.ApplicationSecret'
         type: array
-      user_id:
+      userId:
         type: string
     type: object
   responses.CreateApplicationResponse:
