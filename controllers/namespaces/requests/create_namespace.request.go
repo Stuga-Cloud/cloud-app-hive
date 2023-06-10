@@ -8,7 +8,7 @@ import (
 // CreateNamespaceRequest is a struct that represents the request body for creating a namespace
 type CreateNamespaceRequest struct {
 	Name        string `json:"name" binding:"required,min=3,max=100" validate:"IsACustomStringForSubdomainValidation"`
-	Description string `json:"description" binding:"required,min=3,max=1000"`
+	Description string `json:"description" binding:"omitempty,min=3,max=1000"`
 	UserID      string `json:"userId" binding:"required"`
 }
 

@@ -13,16 +13,17 @@ type CreateNamespaceUseCase struct {
 }
 
 func (createNamespaceUseCase CreateNamespaceUseCase) Execute(createNamespace commands.CreateNamespace) (*domain.Namespace, error) {
-	foundNamespaceByID, err := createNamespaceUseCase.NamespaceRepository.FindByName(createNamespace.Name)
+	foundNamespaceByID, err := createNamespaceUseCase.NamespaceRepository.ExistsByName(createNamespace.Name)
 	if err != nil {
 		return nil, err
 	}
-	if foundNamespaceByID != nil {
+	if foundNamespaceByID == true {
 		return nil, fmt.Errorf("namespace %s already exists", createNamespace.Name)
 	}
 
 	createdNamespace, err := createNamespaceUseCase.NamespaceRepository.Create(createNamespace)
 	if err != nil {
+		fmt.Println(fmt.Errorf("error creating namespace (%s): %w", createNamespace.Name, err))
 		return nil, err
 	}
 	if createdNamespace == nil {

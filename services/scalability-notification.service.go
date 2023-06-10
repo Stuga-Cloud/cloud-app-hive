@@ -29,19 +29,19 @@ func (s *ScalabilityNotificationService) SendApplicationScalabilityRecommandatio
 	body += "\n"
 	body += "The application is currently using " + fmt.Sprintf("%.2f", result.CPUUsageResult.ActualUsage) + "% of its CPU resources, " + fmt.Sprintf("%.2f", result.MemoryUsageResult.ActualUsage) + "% of its memory resources and " + fmt.Sprintf("%.2f", result.EphemeralStorageUsageResult.ActualUsage) + "% of its ephemeral storage resources."
 	// TODO Make this work (it's not working because the specifications are not correctly retrieved from database)
-	//body += "The application is configured to use " +
-	//	fmt.Sprintf(
-	//		"%d%s",
-	//		specifications.CPULimit.Val,
-	//		specifications.CPULimit.Unit,
-	//	) + " of CPU resources, " +
-	//	fmt.Sprintf(
-	//		"%d%s", specifications.MemoryLimit.Val, specifications.MemoryLimit.Unit,
-	//	) + " of memory resources and " +
-	//	fmt.Sprintf(
-	//		"%d%s", specifications.EphemeralStorageLimit.Val, specifications.EphemeralStorageLimit.Unit,
-	//	) + " of ephemeral storage resources."
-	body += "The application is configured to have minimum " + fmt.Sprintf("%d", scalabilitySpecifications.MinimumInstanceCount) + " and maximum " + fmt.Sprintf("%d", scalabilitySpecifications.MaximumInstanceCount) + " instances."
+	body += "The application is configured to use " +
+		fmt.Sprintf(
+			"%d%s",
+			specifications.CPULimit.Val,
+			specifications.CPULimit.Unit,
+		) + " of CPU resources, " +
+		fmt.Sprintf(
+			"%d%s", specifications.MemoryLimit.Val, specifications.MemoryLimit.Unit,
+		) + " of memory resources"
+	//fmt.Sprintf(
+	//	"%d%s", specifications.EphemeralStorageLimit.Val, specifications.EphemeralStorageLimit.Unit,
+	//) + " of ephemeral storage resources."
+	//body += "The application is configured to have minimum " + fmt.Sprintf("%d", scalabilitySpecifications.MinimumInstanceCount) + " and maximum " + fmt.Sprintf("%d", scalabilitySpecifications.MaximumInstanceCount) + " instances."
 	body += "\n\n"
 	body += "Best regards,\n"
 	body += "The Stuga Cloud Team"

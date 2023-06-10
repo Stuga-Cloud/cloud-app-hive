@@ -9,6 +9,8 @@ import (
 type NamespaceRepository interface {
 	// FindByID returns a namespace by its ID
 	FindByID(id string) (*domain.Namespace, error)
+	// ExistsByName
+	ExistsByName(name string) (bool, error)
 	// FindByName returns a namespace by its name
 	FindByName(name string) (*domain.Namespace, error)
 	// Find returns a list of namespaces

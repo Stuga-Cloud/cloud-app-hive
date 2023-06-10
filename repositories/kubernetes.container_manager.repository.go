@@ -6,10 +6,13 @@ import (
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/commands"
 	"cloud-app-hive/utils"
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	//"cloud-app-hive/utils"
 	"context"
 	"fmt"
 	"io"
-	"k8s.io/apimachinery/pkg/api/resource"
+	//"k8s.io/apimachinery/pkg/api/resource"
 	"os"
 	"strings"
 
@@ -220,12 +223,8 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 	// TODO : Add CPU, Memory and Storage limits
 	rawCpuLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.CPULimit.Val, deployApplication.ContainerSpecifications.CPULimit.Unit)
 	rawMemoryLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.MemoryLimit.Val, deployApplication.ContainerSpecifications.MemoryLimit.Unit)
-	rawEphemeralStorageLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.EphemeralStorageLimit.Val, deployApplication.ContainerSpecifications.EphemeralStorageLimit.Unit)
-	fmt.Println("Raw ephemeral storage limit : ", rawEphemeralStorageLimit)
 	cpuLimit := resource.MustParse(utils.ConvertReadableHumanValueAndUnitToK8sResource(rawCpuLimit))
 	memoryLimit := resource.MustParse(utils.ConvertReadableHumanValueAndUnitToK8sResource(rawMemoryLimit))
-	ephemeralStorageLimit := resource.MustParse(utils.ConvertReadableHumanValueAndUnitToK8sResource(rawEphemeralStorageLimit))
-	fmt.Println("Ephemeral storage limit : ", ephemeralStorageLimit)
 
 	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
 
@@ -256,9 +255,8 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 							Env: applicationEnvironmentVariables,
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
-									v1.ResourceCPU:              cpuLimit,
-									v1.ResourceMemory:           memoryLimit,
-									v1.ResourceEphemeralStorage: ephemeralStorageLimit,
+									v1.ResourceCPU:    cpuLimit,
+									v1.ResourceMemory: memoryLimit,
 								},
 							},
 						},
@@ -295,7 +293,55 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 	return nil
 }
 
-func FrenchReadableResourceUnitToKubernetesCPUUnit(resourceUnit domain.ContainerLimitUnit) string {
+// Add secrets to the application
+func (containerManager KubernetesContainerManagerRepository) applySecrets(clientset *kubernetes.Clientset, deployApplication commands.ApplyApplication) error {
+	applicationNamespace := deployApplication.Namespace
+	applicationSecrets := deployApplication.Secrets
+
+	for _, secret := range applicationSecrets {
+		secretName := secret.Name
+		secretVal := secret.Val
+		secretKey := secret.Name
+
+		secret := &v1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: applicationNamespace,
+			},
+			StringData: map[string]string{
+				secretKey: secretVal,
+			},
+		}
+
+		_, err := clientset.CoreV1().Secrets(applicationNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
+		if err == nil {
+			_, err = clientset.CoreV1().Secrets(applicationNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
+			if err != nil {
+				return customErrors.ContainerManagerApplicationDeploymentError{
+					Message:         fmt.Sprintf("Error while updating secret : %s", err.Error()),
+					ApplicationName: deployApplication.Name,
+					Namespace:       deployApplication.Namespace,
+					Image:           deployApplication.Image,
+				}
+			}
+		} else {
+			_, err = clientset.CoreV1().Secrets(applicationNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
+			if err != nil {
+				return customErrors.ContainerManagerApplicationDeploymentError{
+					Message:         fmt.Sprintf("Error while creating secret : %s", err.Error()),
+					ApplicationName: deployApplication.Name,
+					Namespace:       deployApplication.Namespace,
+					Image:           deployApplication.Image,
+				}
+			}
+		}
+
+		fmt.Println("Secret created successfully : " + secretName + " in namespace " + applicationNamespace)
+	}
+
+	return nil
+}
+func FrenchReadableResourceUnitToKubernetesCPUUnit(resourceUnit domain.ContainerMemoryLimitUnit) string {
 	switch resourceUnit {
 	case domain.MB:
 		return "M"
@@ -310,7 +356,7 @@ func FrenchReadableResourceUnitToKubernetesCPUUnit(resourceUnit domain.Container
 	}
 }
 
-func FrenchReadableResourceUnitToKubernetesMemoryUnit(resourceUnit domain.ContainerLimitUnit) string {
+func FrenchReadableResourceUnitToKubernetesMemoryUnit(resourceUnit domain.ContainerMemoryLimitUnit) string {
 	switch resourceUnit {
 	case domain.MB:
 		return "Mi"

@@ -30,6 +30,18 @@ func (r GORMNamespaceRepository) FindByID(id string) (*domain.Namespace, error) 
 	return &app, nil
 }
 
+// ExistsByName returns true if a namespace with the given name exists
+func (r GORMNamespaceRepository) ExistsByName(name string) (bool, error) {
+	var count int64
+	result := r.Database.Model(&domain.Namespace{}).Where(domain.Namespace{
+		Name: name,
+	}).Count(&count)
+	if result.Error != nil {
+		return false, fmt.Errorf("error checking if namespace exists: %w", result.Error)
+	}
+	return count > 0, nil
+}
+
 // FindByName returns a namespace by its name
 func (r GORMNamespaceRepository) FindByName(name string) (*domain.Namespace, error) {
 	app := domain.Namespace{}
