@@ -7,10 +7,10 @@ import (
 
 // FindNamespacesRequest is a struct that represents the request body for finding a namespace
 type FindNamespacesRequest struct {
-	Name    string `json:"name" validate:"IsACustomStringForSubdomainValidation"`
-	UserID  string `json:"userId"`
-	Page    int    `json:"page"`
-	PerPage int    `json:"per_page"`
+	Name    *string `form:"name" validate:"omitempty,IsACustomStringForSubdomainValidation"`
+	UserID  string  `form:"userId" validate:"required"`
+	Page    int     `form:"page"`
+	PerPage int     `form:"per_page"`
 }
 
 func ValidateFindNamespacesRequest(findNamespacesRequest FindNamespacesRequest) error {

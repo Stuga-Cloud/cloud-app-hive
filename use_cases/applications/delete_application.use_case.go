@@ -1,6 +1,7 @@
 package applications
 
 import (
+	"cloud-app-hive/controllers/errors"
 	"fmt"
 
 	"cloud-app-hive/domain"
@@ -18,14 +19,21 @@ func (deleteApplicationUseCase DeleteApplicationUseCase) Execute(deleteApplicati
 		return nil, fmt.Errorf("error getting application by ID: %w", err)
 	}
 
-	if application.UserID != deleteApplication.UserID {
-		return nil, fmt.Errorf("user is not the owner of the application")
+	isAdmin := false
+	for _, membership := range application.Namespace.Memberships {
+		if membership.UserID == deleteApplication.UserID && membership.Role == domain.RoleAdmin {
+			isAdmin = true
+			break
+		}
+	}
+	if !isAdmin {
+		return nil, errors.NewUnauthorizedToAccessNamespaceError(application.Namespace.ID, application.Namespace.Name, deleteApplication.UserID)
 	}
 
-	_, err = deleteApplicationUseCase.ApplicationRepository.Delete(deleteApplication.ID)
+	deletedApplication, err := deleteApplicationUseCase.ApplicationRepository.Delete(deleteApplication.ID)
 	if err != nil {
 		return nil, fmt.Errorf("error when deleting application: %w", err)
 	}
 
-	return application, nil
+	return deletedApplication, nil
 }

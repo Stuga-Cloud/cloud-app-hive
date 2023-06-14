@@ -33,7 +33,7 @@ func ConnectToDatabase() (*gorm.DB, error) {
 }
 
 func MigrateDatabase(db *gorm.DB) error {
-	err := db.AutoMigrate(&domain.Application{}, &domain.Namespace{})
+	err := db.AutoMigrate(&domain.Application{}, &domain.Namespace{}, &domain.NamespaceMembership{})
 	if err != nil {
 		return ErrDatabaseMigration
 	}

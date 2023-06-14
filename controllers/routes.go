@@ -25,11 +25,14 @@ func InitRoutes(
 	getApplicationLogsUseCase applicationsUseCases.GetApplicationLogsUseCase,
 	getApplicationMetricsUseCase applicationsUseCases.GetApplicationMetricsUseCase,
 	getApplicationStatusUseCase applicationsUseCases.GetApplicationStatusUseCase,
+	createNamespaceMembershipUseCase namespaceUseCases.CreateNamespaceMembershipUseCase,
+	deleteNamespaceByIDUseCase namespaceUseCases.DeleteNamespaceByIDUseCase,
+	updateNamespaceByIDUseCase namespaceUseCases.UpdateNamespaceByIDUseCase,
 ) *gin.Engine {
 	api := router.Group("/api/v1")
 	{
 		api.GET("/health", HealthCheck)
-		namespaces.InitNamespacesRoutes(api, createNamespaceUseCase, findNamespaceByIDUseCase, findNamespacesUseCase)
+		namespaces.InitNamespacesRoutes(api, createNamespaceUseCase, findNamespaceByIDUseCase, findNamespacesUseCase, createNamespaceMembershipUseCase, deleteNamespaceByIDUseCase, updateNamespaceByIDUseCase)
 		applications.InitApplicationsRoutes(
 			api,
 			findApplicationsUseCase,

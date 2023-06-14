@@ -33,12 +33,12 @@ func (containerManager KubernetesContainerManagerRepository) connectToKubernetes
 	kubeconfig := os.Getenv("KUBECONFIG_PATH")
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		return nil, customErrors.ContainerManagerConnectionError{Message: fmt.Sprintf("Error while connecting to Kubernetes API : %s", err.Error())}
+		return nil, &customErrors.ContainerManagerConnectionError{Message: fmt.Sprintf("Error while connecting to Kubernetes API : %s", err.Error())}
 	}
 
 	clientSet, err := versioned.NewForConfig(config)
 	if err != nil {
-		return nil, customErrors.ContainerManagerConnectionError{Message: fmt.Sprintf("Error while connecting to Kubernetes API : %s", err.Error())}
+		return nil, &customErrors.ContainerManagerConnectionError{Message: fmt.Sprintf("Error while connecting to Kubernetes API : %s", err.Error())}
 	}
 
 	return clientSet, nil
@@ -64,7 +64,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationMetri
 		context.Background(), metav1.ListOptions{},
 	)
 	if err != nil {
-		return nil, customErrors.ContainerManagerError{
+		return nil, &customErrors.ContainerManagerError{
 			Message: fmt.Sprintf("Error while connecting to Kubernetes API : %s", err.Error()),
 		}
 	}
@@ -76,7 +76,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationMetri
 		context.Background(), deploymentName, metav1.GetOptions{},
 	)
 	if err != nil {
-		return nil, customErrors.ContainerManagerError{
+		return nil, &customErrors.ContainerManagerError{
 			Message: fmt.Sprintf("Error while retrieving Deployment object : %s", err.Error()),
 		}
 	}
@@ -118,19 +118,19 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationMetri
 func (containerManager KubernetesContainerManagerRepository) connectToKubernetesAPI() (*kubernetes.Clientset, error) {
 	kubeconfig := os.Getenv("KUBECONFIG_PATH")
 	if kubeconfig == "" {
-		return nil, customErrors.ContainerManagerConnectionError{Message: "KUBECONFIG_PATH environment variable is not set"}
+		return nil, &customErrors.ContainerManagerConnectionError{Message: "KUBECONFIG_PATH environment variable is not set"}
 	}
 
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		return nil, customErrors.ContainerManagerConnectionError{
+		return nil, &customErrors.ContainerManagerConnectionError{
 			Message: fmt.Sprintf("Error while connecting to Kubernetes API : %s", err.Error()),
 		}
 	}
 
 	clientSet, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, customErrors.ContainerManagerConnectionError{
+		return nil, &customErrors.ContainerManagerConnectionError{
 			Message: fmt.Sprintf("Error while connecting to Kubernetes API : %s", err.Error()),
 		}
 	}
@@ -148,28 +148,28 @@ func (containerManager KubernetesContainerManagerRepository) ApplyApplication(
 
 	err = containerManager.applyNamespace(clientset, applyApplication)
 	if err != nil {
-		return customErrors.ContainerManagerError{
+		return &customErrors.ContainerManagerError{
 			Message: "While applying namespace - " + err.Error(),
 		}
 	}
 
 	err = containerManager.applyDeployment(clientset, applyApplication)
 	if err != nil {
-		return customErrors.ContainerManagerError{
+		return &customErrors.ContainerManagerError{
 			Message: "While applying deployment - " + err.Error(),
 		}
 	}
 
 	err = containerManager.applyService(clientset, applyApplication)
 	if err != nil {
-		return customErrors.ContainerManagerError{
+		return &customErrors.ContainerManagerError{
 			Message: "While applying service - " + err.Error(),
 		}
 	}
 
 	err = containerManager.applyIngress(clientset, applyApplication)
 	if err != nil {
-		return customErrors.ContainerManagerError{
+		return &customErrors.ContainerManagerError{
 			Message: "While applying ingress - " + err.Error(),
 		}
 	}
@@ -189,7 +189,7 @@ func (containerManager KubernetesContainerManagerRepository) applyNamespace(
 			},
 		}, metav1.CreateOptions{})
 		if err != nil {
-			return customErrors.ContainerManagerApplicationDeploymentError{
+			return &customErrors.ContainerManagerApplicationDeploymentError{
 				Message:         fmt.Sprintf("Error while creating namespace : %s", err.Error()),
 				ApplicationName: deployApplication.Name,
 				Namespace:       deployApplication.Namespace,
@@ -270,7 +270,7 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 	if err == nil {
 		_, err = clientset.AppsV1().Deployments(applicationNamespace).Update(context.Background(), deployment, metav1.UpdateOptions{})
 		if err != nil {
-			return customErrors.ContainerManagerApplicationDeploymentError{
+			return &customErrors.ContainerManagerApplicationDeploymentError{
 				Message:         fmt.Sprintf("Error while updating deployment : %s", err.Error()),
 				ApplicationName: deployApplication.Name,
 				Namespace:       deployApplication.Namespace,
@@ -280,7 +280,7 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 	} else {
 		_, err = clientset.AppsV1().Deployments(applicationNamespace).Create(context.Background(), deployment, metav1.CreateOptions{})
 		if err != nil {
-			return customErrors.ContainerManagerApplicationDeploymentError{
+			return &customErrors.ContainerManagerApplicationDeploymentError{
 				Message:         fmt.Sprintf("Error while creating deployment : %s", err.Error()),
 				ApplicationName: deployApplication.Name,
 				Namespace:       deployApplication.Namespace,
@@ -317,7 +317,7 @@ func (containerManager KubernetesContainerManagerRepository) applySecrets(client
 		if err == nil {
 			_, err = clientset.CoreV1().Secrets(applicationNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
 			if err != nil {
-				return customErrors.ContainerManagerApplicationDeploymentError{
+				return &customErrors.ContainerManagerApplicationDeploymentError{
 					Message:         fmt.Sprintf("Error while updating secret : %s", err.Error()),
 					ApplicationName: deployApplication.Name,
 					Namespace:       deployApplication.Namespace,
@@ -327,7 +327,7 @@ func (containerManager KubernetesContainerManagerRepository) applySecrets(client
 		} else {
 			_, err = clientset.CoreV1().Secrets(applicationNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
 			if err != nil {
-				return customErrors.ContainerManagerApplicationDeploymentError{
+				return &customErrors.ContainerManagerApplicationDeploymentError{
 					Message:         fmt.Sprintf("Error while creating secret : %s", err.Error()),
 					ApplicationName: deployApplication.Name,
 					Namespace:       deployApplication.Namespace,
@@ -385,7 +385,7 @@ func (containerManager KubernetesContainerManagerRepository) applyService(client
 	} else if deployApplication.ApplicationType == domain.LoadBalanced {
 		serviceType = v1.ServiceTypeLoadBalancer // TODO - not working with type load balancer
 	} else {
-		return customErrors.ContainerManagerApplicationDeploymentError{
+		return &customErrors.ContainerManagerApplicationDeploymentError{
 			Message:         fmt.Sprintf("Error while creating service : %s", "Application type not supported"),
 			ApplicationName: deployApplication.Name,
 			Namespace:       deployApplication.Namespace,
@@ -417,7 +417,7 @@ func (containerManager KubernetesContainerManagerRepository) applyService(client
 	if err == nil {
 		_, err = clientset.CoreV1().Services(applicationNamespace).Update(context.Background(), service, metav1.UpdateOptions{})
 		if err != nil {
-			return customErrors.ContainerManagerApplicationDeploymentError{
+			return &customErrors.ContainerManagerApplicationDeploymentError{
 				Message:         fmt.Sprintf("Error while updating service : %s", err.Error()),
 				ApplicationName: deployApplication.Name,
 				Namespace:       deployApplication.Namespace,
@@ -427,7 +427,7 @@ func (containerManager KubernetesContainerManagerRepository) applyService(client
 	} else {
 		_, err = clientset.CoreV1().Services(applicationNamespace).Create(context.Background(), service, metav1.CreateOptions{})
 		if err != nil {
-			return customErrors.ContainerManagerApplicationDeploymentError{
+			return &customErrors.ContainerManagerApplicationDeploymentError{
 				Message:         fmt.Sprintf("Error while creating service : %s", err.Error()),
 				ApplicationName: deployApplication.Name,
 				Namespace:       deployApplication.Namespace,
@@ -458,7 +458,7 @@ func (containerManager KubernetesContainerManagerRepository) applyIngress(client
 		Spec: v13.IngressSpec{
 			Rules: []v13.IngressRule{
 				{
-					Host: fmt.Sprintf("%s.%s.%s", applicationNamespace, applicationName, domainName),
+					Host: fmt.Sprintf("%s.%s.%s", applicationName, applicationNamespace, domainName),
 					IngressRuleValue: v13.IngressRuleValue{
 						HTTP: &v13.HTTPIngressRuleValue{
 							Paths: []v13.HTTPIngressPath{
@@ -486,7 +486,7 @@ func (containerManager KubernetesContainerManagerRepository) applyIngress(client
 	if err == nil {
 		_, err = clientset.NetworkingV1().Ingresses(applicationNamespace).Update(context.Background(), &ingress, metav1.UpdateOptions{})
 		if err != nil {
-			return customErrors.ContainerManagerApplicationDeploymentError{
+			return &customErrors.ContainerManagerApplicationDeploymentError{
 				Message:         fmt.Sprintf("Error while updating ingress : %s", err.Error()),
 				ApplicationName: deployApplication.Name,
 				Namespace:       deployApplication.Namespace,
@@ -496,7 +496,7 @@ func (containerManager KubernetesContainerManagerRepository) applyIngress(client
 	} else {
 		_, err = clientset.NetworkingV1().Ingresses(applicationNamespace).Create(context.Background(), &ingress, metav1.CreateOptions{})
 		if err != nil {
-			return customErrors.ContainerManagerApplicationDeploymentError{
+			return &customErrors.ContainerManagerApplicationDeploymentError{
 				Message:         fmt.Sprintf("Error while creating ingress : %s", err.Error()),
 				ApplicationName: deployApplication.Name,
 				Namespace:       deployApplication.Namespace,
@@ -516,7 +516,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationLogs(
 
 	clientset, err := containerManager.connectToKubernetesAPI()
 	if err != nil {
-		return nil, customErrors.ContainerManagerError{
+		return nil, &customErrors.ContainerManagerError{
 			Message: fmt.Sprintf("Connecting to Kubernetes API while getting application logs failed : %s", err.Error()),
 		}
 	}
@@ -524,12 +524,12 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationLogs(
 		LabelSelector: fmt.Sprintf("app=%s", deploymentName),
 	})
 	if err != nil {
-		return nil, customErrors.ContainerManagerError{
+		return nil, &customErrors.ContainerManagerError{
 			Message: fmt.Sprintf("Getting pods while getting application logs failed : %s", err.Error()),
 		}
 	}
 	if len(podList.Items) == 0 {
-		return nil, customErrors.ContainerManagerError{
+		return nil, &customErrors.ContainerManagerError{
 			Message: fmt.Sprintf("No pod found for application %s in namespace %s", applicationName, applicationNamespace),
 		}
 	}
@@ -543,7 +543,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationLogs(
 		request := clientset.CoreV1().Pods(applicationNamespace).GetLogs(pod.Name, &podLogOptions)
 		podLogs, err := request.Stream(context.Background())
 		if err != nil {
-			return nil, customErrors.ContainerManagerError{
+			return nil, &customErrors.ContainerManagerError{
 				Message: fmt.Sprintf("Opening stream to pod %s while getting application logs failed : %s", pod.Name, err.Error()),
 			}
 		}
@@ -551,7 +551,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationLogs(
 
 		buf := new(bytes.Buffer)
 		if _, err = io.Copy(buf, podLogs); err != nil {
-			return nil, customErrors.ContainerManagerError{
+			return nil, &customErrors.ContainerManagerError{
 				Message: fmt.Sprintf(
 					"Reading stream from pod %s while getting application logs failed : %s", pod.Name, err.Error(),
 				),
@@ -575,32 +575,32 @@ func (containerManager KubernetesContainerManagerRepository) UnapplyApplication(
 
 	clientset, err := containerManager.connectToKubernetesAPI()
 	if err != nil {
-		return customErrors.ContainerManagerError{
+		return &customErrors.ContainerManagerError{
 			Message: fmt.Sprintf("Connecting to Kubernetes API while unapplying application failed : %s", err.Error()),
 		}
 	}
 
 	if err = containerManager.deleteIngress(clientset, unapplyApplication); err != nil {
-		// Redeploy application if ingress deletion failed ?
-		return customErrors.ContainerManagerError{
+		// TODO Redeploy application if ingress deletion failed ?
+		return &customErrors.ContainerManagerError{
 			Message: fmt.Sprintf("Deleting ingress while unapplying application failed : %s", err.Error()),
 		}
 	}
 
 	if err = containerManager.deleteService(clientset, unapplyApplication); err != nil {
-		return customErrors.ContainerManagerError{
+		return &customErrors.ContainerManagerError{
 			Message: fmt.Sprintf("Deleting service while unapplying application failed : %s", err.Error()),
 		}
 	}
 
 	if err = containerManager.deleteDeployment(clientset, unapplyApplication); err != nil {
-		return customErrors.ContainerManagerError{
+		return &customErrors.ContainerManagerError{
 			Message: fmt.Sprintf("Deleting deployment while unapplying application failed : %s", err.Error()),
 		}
 	}
 
 	if err = containerManager.deletePods(clientset, unapplyApplication); err != nil {
-		return customErrors.ContainerManagerError{
+		return &customErrors.ContainerManagerError{
 			Message: fmt.Sprintf("Deleting pods while unapplying application failed : %s", err.Error()),
 		}
 	}
@@ -615,7 +615,7 @@ func (containerManager KubernetesContainerManagerRepository) deleteIngress(clien
 	ingressName := fmt.Sprintf("%s-ingress", applicationName)
 	err := clientset.NetworkingV1().Ingresses(applicationNamespace).Delete(context.Background(), ingressName, metav1.DeleteOptions{})
 	if err != nil {
-		return customErrors.ContainerManagerApplicationRemoveError{
+		return &customErrors.ContainerManagerApplicationRemoveError{
 			Message:         fmt.Sprintf("Error deleting ingress : %s", err.Error()),
 			ApplicationName: applicationName,
 			Namespace:       applicationNamespace,
@@ -631,7 +631,7 @@ func (containerManager KubernetesContainerManagerRepository) deleteService(clien
 	serviceName := fmt.Sprintf("%s-service", applicationName)
 	err := clientset.CoreV1().Services(applicationNamespace).Delete(context.Background(), serviceName, metav1.DeleteOptions{})
 	if err != nil {
-		return customErrors.ContainerManagerApplicationRemoveError{
+		return &customErrors.ContainerManagerApplicationRemoveError{
 			Message:         fmt.Sprintf("Error deleting service : %s", err.Error()),
 			ApplicationName: applicationName,
 			Namespace:       applicationNamespace,
@@ -647,7 +647,7 @@ func (containerManager KubernetesContainerManagerRepository) deleteDeployment(cl
 	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
 	err := clientset.AppsV1().Deployments(applicationNamespace).Delete(context.Background(), deploymentName, metav1.DeleteOptions{})
 	if err != nil {
-		return customErrors.ContainerManagerApplicationRemoveError{
+		return &customErrors.ContainerManagerApplicationRemoveError{
 			Message:         fmt.Sprintf("Error deleting deployment : %s", err.Error()),
 			ApplicationName: applicationName,
 			Namespace:       applicationNamespace,
@@ -665,7 +665,7 @@ func (containerManager KubernetesContainerManagerRepository) deletePods(clientse
 		LabelSelector: fmt.Sprintf("app=%s", deploymentName),
 	})
 	if err != nil {
-		return customErrors.ContainerManagerApplicationRemoveError{
+		return &customErrors.ContainerManagerApplicationRemoveError{
 			Message:         fmt.Sprintf("Error getting pods : %s", err.Error()),
 			ApplicationName: applicationName,
 			Namespace:       applicationNamespace,
@@ -674,7 +674,7 @@ func (containerManager KubernetesContainerManagerRepository) deletePods(clientse
 	for _, pod := range podList.Items {
 		err = clientset.CoreV1().Pods(applicationNamespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 		if err != nil {
-			return customErrors.ContainerManagerApplicationRemoveError{
+			return &customErrors.ContainerManagerApplicationRemoveError{
 				Message:         fmt.Sprintf("Error deleting pod : %s", err.Error()),
 				ApplicationName: applicationName,
 				Namespace:       applicationNamespace,
@@ -689,7 +689,7 @@ func (containerManager KubernetesContainerManagerRepository) deletePods(clientse
 //	applicationNamespace := deployApplication.NamespaceID
 //	err := clientset.CoreV1().Namespaces().Delete(context.Background(), applicationNamespace, metav1.DeleteOptions{})
 //	if err != nil {
-//		return customErrors.ContainerManagerApplicationRemoveError{
+//		return &customErrors.ContainerManagerApplicationRemoveError{
 //			Message:         fmt.Sprintf("Error deleting namespace : %s", err.Error()),
 //			ApplicationName: deployApplication.Name,
 //			Namespace:       deployApplication.NamespaceID,
@@ -706,7 +706,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 
 	clientset, err := containerManager.connectToKubernetesAPI()
 	if err != nil {
-		return nil, customErrors.ContainerManagerApplicationInformationError{
+		return nil, &customErrors.ContainerManagerApplicationInformationError{
 			Message:         fmt.Sprintf("Connecting to Kubernetes API gettings application status failed : %s", err.Error()),
 			ApplicationName: applicationName,
 			Namespace:       applicationNamespace,
@@ -716,7 +716,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 
 	deployment, err := clientset.AppsV1().Deployments(applicationNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
 	if err != nil {
-		return nil, customErrors.ContainerManagerApplicationInformationError{
+		return nil, &customErrors.ContainerManagerApplicationInformationError{
 			Message:         fmt.Sprintf("Getting deployment failed : %s", err.Error()),
 			ApplicationName: applicationName,
 			Namespace:       applicationNamespace,
@@ -727,7 +727,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 	serviceName := fmt.Sprintf("%s-service", applicationName)
 	service, err := clientset.CoreV1().Services(applicationNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
 	if err != nil {
-		return nil, customErrors.ContainerManagerApplicationInformationError{
+		return nil, &customErrors.ContainerManagerApplicationInformationError{
 			Message:         fmt.Sprintf("Getting service failed : %s", err.Error()),
 			ApplicationName: applicationName,
 			Namespace:       applicationNamespace,
@@ -742,7 +742,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 		context.Background(), ingressName, metav1.GetOptions{},
 	)
 	if err != nil {
-		return nil, customErrors.ContainerManagerApplicationInformationError{
+		return nil, &customErrors.ContainerManagerApplicationInformationError{
 			Message:         fmt.Sprintf("Getting ingress failed : %s", err.Error()),
 			ApplicationName: applicationName,
 			Namespace:       applicationNamespace,

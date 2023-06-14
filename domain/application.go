@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -23,5 +24,5 @@ type Application struct {
 	AdministratorEmail        string                                `json:"administratorEmail" gorm:"size:320;not null"`
 	UpdatedAt                 time.Time                             `json:"updatedAt" gorm:"autoUpdateTime;not null"`
 	CreatedAt                 time.Time                             `json:"createdAt" gorm:"autoCreateTime;not null"`
-	DeletedAt                 *time.Time                            `json:"deletedAt" gorm:"index;default:null"`
+	DeletedAt                 *gorm.DeletedAt                       `json:"deletedAt" gorm:"index;default:null"`
 }

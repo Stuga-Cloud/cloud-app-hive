@@ -2,7 +2,6 @@ package main
 
 import (
 	"cloud-app-hive/repositories"
-	"cloud-app-hive/schedulers"
 	"cloud-app-hive/use_cases/applications"
 	"cloud-app-hive/use_cases/namespaces"
 	"os"
@@ -73,6 +72,12 @@ func initDependencies(router *gin.Engine) {
 	findNamespacesUseCase := namespaces.FindNamespacesUseCase{
 		NamespaceRepository: namespaceRepository,
 	}
+	deleteNamespaceByIDUseCase := namespaces.DeleteNamespaceByIDUseCase{
+		NamespaceRepository: namespaceRepository,
+	}
+	updateNamespaceByIDUseCase := namespaces.UpdateNamespaceByIDUseCase{
+		NamespaceRepository: namespaceRepository,
+	}
 
 	// Application dependencies
 	applicationRepository := repositories.GORMApplicationRepository{
@@ -108,6 +113,15 @@ func initDependencies(router *gin.Engine) {
 	getApplicationStatusUseCase := applications.GetApplicationStatusUseCase{
 		ContainerManagerRepository: containerManagerRepository,
 	}
+
+	// Namespace membership dependencies
+	memoryNamespaceMembershipRepository := repositories.GORMNamespaceMembershipRepository{
+		Database: db,
+	}
+	createNamespaceMembershipUseCase := namespaces.CreateNamespaceMembershipUseCase{
+		NamespaceMembershipRepository: memoryNamespaceMembershipRepository,
+	}
+
 	controllers.InitRoutes(
 		router,
 		createNamespaceUseCase,
@@ -122,7 +136,10 @@ func initDependencies(router *gin.Engine) {
 		getApplicationLogsUseCase,
 		getApplicationMetricsUseCase,
 		getApplicationStatusUseCase,
+		createNamespaceMembershipUseCase,
+		deleteNamespaceByIDUseCase,
+		updateNamespaceByIDUseCase,
 	)
 
-	schedulers.InitSchedulers()
+	//schedulers.InitSchedulers()
 }

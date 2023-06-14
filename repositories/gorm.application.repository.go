@@ -1,12 +1,9 @@
 package repositories
 
 import (
-	"fmt"
-	"time"
-
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/commands"
-
+	"fmt"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -45,7 +42,7 @@ func (r GORMApplicationRepository) FindApplications(findApplications commands.Fi
 // FindByID returns an application by its ID
 func (r GORMApplicationRepository) FindByID(id string) (*domain.Application, error) {
 	app := domain.Application{}
-	result := r.Database.Preload("Namespace").Find(&app, domain.Application{
+	result := r.Database.Preload("Namespace").Preload("Namespace.Memberships").Find(&app, domain.Application{
 		ID: id,
 	}).Limit(1)
 	if result.Error != nil {
@@ -141,20 +138,19 @@ func (r GORMApplicationRepository) Update(applicationID string, application comm
 // Delete deletes an application
 func (r GORMApplicationRepository) Delete(id string) (*domain.Application, error) {
 	app := domain.Application{}
-	queryResult := r.Database.Find(&app, domain.Application{
+	foundResult := r.Database.Find(&app, domain.Application{
 		ID: id,
 	}).Limit(1)
-	if queryResult.Error != nil {
-		return nil, fmt.Errorf("error finding application: %w", queryResult.Error)
+	if foundResult.Error != nil {
+		return nil, fmt.Errorf("error while finding application while deleting: %w", foundResult.Error)
 	}
-	if queryResult.RowsAffected == 0 {
-		return nil, fmt.Errorf("application with ID %s not found", id)
+	if foundResult.RowsAffected == 0 {
+		return nil, fmt.Errorf("application with ID %s not found while deleting", id)
 	}
-	now := time.Now()
-	app.DeletedAt = &now
-	deleteResult := r.Database.Save(&app)
-	if deleteResult.Error != nil {
-		return nil, fmt.Errorf("error deleting application: %w", deleteResult.Error)
+
+	result := r.Database.Delete(&app)
+	if result.Error != nil {
+		return nil, fmt.Errorf("error deleting application: %w", result.Error)
 	}
 	return &app, nil
 }

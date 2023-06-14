@@ -1,6 +1,7 @@
 package namespaces
 
 import (
+	"cloud-app-hive/controllers/errors"
 	"fmt"
 
 	"cloud-app-hive/domain"
@@ -18,7 +19,7 @@ func (createNamespaceUseCase CreateNamespaceUseCase) Execute(createNamespace com
 		return nil, err
 	}
 	if foundNamespaceByID == true {
-		return nil, fmt.Errorf("namespace %s already exists", createNamespace.Name)
+		return nil, errors.NewNamespaceWithNameAlreadyExistError(createNamespace.Name)
 	}
 
 	createdNamespace, err := createNamespaceUseCase.NamespaceRepository.Create(createNamespace)

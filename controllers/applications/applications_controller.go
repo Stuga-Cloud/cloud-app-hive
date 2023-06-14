@@ -183,13 +183,13 @@ func (applicationController ApplicationController) FindApplicationsController(c 
 		Page:            findApplicationsRequest.Page,
 		Limit:           findApplicationsRequest.Limit,
 	}
-	applications, err := applicationController.findApplicationsUseCase.Execute(findApplicationsCommand)
+	foundApplications, err := applicationController.findApplicationsUseCase.Execute(findApplicationsCommand)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"applications": applications})
+	c.JSON(http.StatusOK, gin.H{"applications": foundApplications})
 }
 
 func (applicationController ApplicationController) UpdateApplicationByNameAndNamespaceController(c *gin.Context) {
@@ -271,8 +271,8 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 	})
 }
 
-// DeleteApplicationByNameAndNamespaceController deletes an application by name and namespace in query params
-func (applicationController ApplicationController) DeleteApplicationByNameAndNamespaceController(c *gin.Context) {
+// DeleteApplicationByIDController deletes an application by name and namespace in query params
+func (applicationController ApplicationController) DeleteApplicationByIDController(c *gin.Context) {
 	if !controllerValidators.ValidateAuthorizationToken(c) {
 		controllerValidators.Unauthorized(c)
 		return

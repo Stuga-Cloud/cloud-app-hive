@@ -32,7 +32,7 @@ func NewApiError(statusCode int, name string, message string, description string
 	// append the apiContext to the context
 	context.(map[string]interface{})["apiContext"] = apiContext
 	err := ApiError{
-		Date:        time.Now().Format(time.RFC3339),
+		Date:        time.Now().UTC().Format(time.RFC3339),
 		StatusCode:  statusCode,
 		Name:        name,
 		Message:     message,

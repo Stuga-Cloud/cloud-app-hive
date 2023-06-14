@@ -38,5 +38,5 @@ func InitApplicationsRoutes(
 	// router.GET("/applications/:namespace/:name", applicationControllers.GetApplicationByNameAndNamespaceController) TODO
 	// router.GET("/applications/:userId", applicationControllers.GetApplicationByUserIdController) TODO
 	// router.PUT("/applications/:namespace/:name", applicationControllers.UpdateApplicationByNameAndNamespaceController) TODO
-	router.DELETE("/applications/:id", applicationController.DeleteApplicationByNameAndNamespaceController)
+	router.DELETE("/applications/:id", applicationController.DeleteApplicationByIDController)
 }

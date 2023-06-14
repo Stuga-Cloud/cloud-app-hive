@@ -9,10 +9,7 @@ import (
 
 func ValidateAuthorizationToken(c *gin.Context) bool {
 	authHeader := c.Request.Header.Get("Authorization")
-	if authHeader != "Bearer "+os.Getenv("API_KEY") {
-		return false
-	}
-	return true
+	return authHeader == "Bearer "+os.Getenv("API_KEY")
 }
 
 func Unauthorized(c *gin.Context) {

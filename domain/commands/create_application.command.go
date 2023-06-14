@@ -1,6 +1,8 @@
 package commands
 
-import "cloud-app-hive/domain"
+import (
+	"cloud-app-hive/domain"
+)
 
 // CreateApplication is a command that represents the deployment of an application
 type CreateApplication struct {
@@ -26,8 +28,8 @@ func (createApplication CreateApplication) ToDomain(ID string) domain.Applicatio
 		Name:                      createApplication.Name,
 		Description:               createApplication.Description,
 		Image:                     createApplication.Image,
-		NamespaceID:               createApplication.NamespaceID,
 		UserID:                    createApplication.UserID,
+		NamespaceID:               createApplication.NamespaceID,
 		Port:                      createApplication.Port,
 		Zone:                      createApplication.Zone,
 		ApplicationType:           createApplication.ApplicationType,
@@ -35,5 +37,6 @@ func (createApplication CreateApplication) ToDomain(ID string) domain.Applicatio
 		Secrets:                   &createApplication.Secrets,
 		ContainerSpecifications:   &createApplication.ContainerSpecifications,
 		ScalabilitySpecifications: &createApplication.ScalabilitySpecifications,
+		AdministratorEmail:        createApplication.AdministratorEmail,
 	}
 }

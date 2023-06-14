@@ -18,7 +18,7 @@ type NamespaceRepository interface {
 	// Create creates a new namespace
 	Create(namespace commands.CreateNamespace) (*domain.Namespace, error)
 	// Delete deletes a namespace
-	Delete(id string) (*domain.Namespace, error)
+	Delete(id string, userId string) (*domain.Namespace, error)
 	// Update updates a namespace
-	// Update(namespace commands.UpdateNamespace) (*domain.NamespaceID, error)
+	Update(namespace commands.UpdateNamespace) (*domain.Namespace, error)
 }
