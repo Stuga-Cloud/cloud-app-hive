@@ -2,6 +2,7 @@ package namespaces
 
 import (
 	"cloud-app-hive/controllers/errors"
+	"cloud-app-hive/use_cases/applications"
 	"fmt"
 	"net/http"
 
@@ -18,8 +19,10 @@ type NamespaceController struct {
 	findNamespaceByIDUseCase         namespaces.FindNamespaceByIDUseCase
 	findNamespaceByName              namespaces.FindNamespaceByNameUseCase
 	createNamespaceMembershipUseCase namespaces.CreateNamespaceMembershipUseCase
+	removeNamespaceMembershipUseCase namespaces.RemoveNamespaceMembershipUseCase
 	deleteNamespaceByIDUseCase       namespaces.DeleteNamespaceByIDUseCase
 	updateNamespaceByIDUseCase       namespaces.UpdateNamespaceByIDUseCase
+	fillApplicationsStatusUseCase    applications.FillApplicationStatusUseCase
 }
 
 func NewNamespaceController(
@@ -27,16 +30,20 @@ func NewNamespaceController(
 	findNamespacesUseCase namespaces.FindNamespacesUseCase,
 	findNamespaceByIDUseCase namespaces.FindNamespaceByIDUseCase,
 	createNamespaceMembershipUseCase namespaces.CreateNamespaceMembershipUseCase,
+	removeNamespaceMembershipUseCase namespaces.RemoveNamespaceMembershipUseCase,
 	deleteNamespaceByIDUseCase namespaces.DeleteNamespaceByIDUseCase,
 	updateNamespaceByIDUseCase namespaces.UpdateNamespaceByIDUseCase,
+	fillApplicationsStatusUseCase applications.FillApplicationStatusUseCase,
 ) NamespaceController {
 	return NamespaceController{
 		createNamespaceUseCase:           createNamespaceUseCase,
 		findNamespacesUseCase:            findNamespacesUseCase,
 		findNamespaceByIDUseCase:         findNamespaceByIDUseCase,
 		createNamespaceMembershipUseCase: createNamespaceMembershipUseCase,
+		removeNamespaceMembershipUseCase: removeNamespaceMembershipUseCase,
 		deleteNamespaceByIDUseCase:       deleteNamespaceByIDUseCase,
 		updateNamespaceByIDUseCase:       updateNamespaceByIDUseCase,
+		fillApplicationsStatusUseCase:    fillApplicationsStatusUseCase,
 	}
 }
 
@@ -166,12 +173,18 @@ func (namespaceController NamespaceController) FindNamespaceByIDController(c *gi
 
 	namespaceID := c.Param("id")
 	userID := c.Query("userId")
-	fmt.Println("Finding namespace with ID: " + namespaceID + " for user with ID: " + userID)
 	if userID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "userId query param is required"})
 		return
 	}
 	foundNamespace, err := namespaceController.findNamespaceByIDUseCase.Execute(namespaceID, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// TODO Fill applications status by querying it from the container manager
+	foundNamespace.Applications, err = namespaceController.fillApplicationsStatusUseCase.Execute(foundNamespace.Name, foundNamespace.Applications)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -229,6 +242,72 @@ func (namespaceController NamespaceController) AddMemberToNamespaceController(c 
 	namespaceMembership, err := namespaceController.createNamespaceMembershipUseCase.Execute(createNamespaceMembership)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"namespace_membership": namespaceMembership,
+	})
+}
+
+func (namespaceController NamespaceController) RemoveMemberFromNamespaceController(c *gin.Context) {
+	if !validators.ValidateAuthorizationToken(c) {
+		validators.Unauthorized(c)
+		return
+	}
+
+	namespaceID := c.Param("id")
+	userID := c.Param("userId")
+	removedBy := c.Query("removedBy")
+	if removedBy == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "removedBy query param is required"})
+		return
+	}
+
+	namespaceMembership, err := namespaceController.removeNamespaceMembershipUseCase.Execute(commands.RemoveNamespaceMembership{
+		NamespaceID: namespaceID,
+		UserID:      userID,
+		RemovedBy:   removedBy,
+	})
+	if err != nil {
+		fmt.Printf("Error while removing member from namespace: %s", err.Error())
+
+		status := http.StatusInternalServerError
+		errorName := "internal_server_error"
+		errorMessage := "An internal server error occurred while trying to remove the member from the namespace"
+		description := "Please try again later or contact support"
+		contextualInformation := map[string]interface{}{
+			"queryParams":  c.Request.URL.Query(),
+			"namespace_id": namespaceID,
+			"userId":       userID,
+			"removedBy":    removedBy,
+		}
+		if _, ok := err.(*errors.UnauthorizedToAccessNamespaceError); ok {
+			status = http.StatusForbidden
+			errorName = "unauthorized_to_access_namespace"
+			errorMessage = fmt.Sprintf("The user with id %s is not authorized to access the namespace with id %s", userID, namespaceID)
+			description = "Please try again with a different namespace id"
+		}
+		if _, ok := err.(*errors.NotAdminInNamespaceError); ok {
+			status = http.StatusForbidden
+			errorName = "not_admin_in_namespace"
+			errorMessage = fmt.Sprintf("The user with id %s is not an admin in the namespace with id %s", removedBy, namespaceID)
+			description = "Maybe try again with a different namespace id or ask admin to remove this user from the namespace"
+		}
+		if _, ok := err.(*errors.UnauthorizedToRemoveAdminFromNamespaceError); ok {
+			status = http.StatusForbidden
+			errorName = "unauthorized_to_remove_admin_from_namespace"
+			errorMessage = fmt.Sprintf("The user with id %s is not authorized to remove an admin from the namespace with id %s", removedBy, namespaceID)
+			description = "Please try again with a different namespace id. Because you cannot remove another admin from the namespace"
+		}
+		c.JSON(http.StatusInternalServerError, errors.NewApiError(
+			status,
+			errorName,
+			errorMessage,
+			description,
+			c,
+			contextualInformation,
+		))
 		return
 	}
 

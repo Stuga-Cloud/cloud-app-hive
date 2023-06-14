@@ -113,6 +113,9 @@ func initDependencies(router *gin.Engine) {
 	getApplicationStatusUseCase := applications.GetApplicationStatusUseCase{
 		ContainerManagerRepository: containerManagerRepository,
 	}
+	fillApplicationsStatusUseCase := applications.FillApplicationStatusUseCase{
+		ContainerManagerRepository: containerManagerRepository,
+	}
 
 	// Namespace membership dependencies
 	memoryNamespaceMembershipRepository := repositories.GORMNamespaceMembershipRepository{
@@ -120,6 +123,10 @@ func initDependencies(router *gin.Engine) {
 	}
 	createNamespaceMembershipUseCase := namespaces.CreateNamespaceMembershipUseCase{
 		NamespaceMembershipRepository: memoryNamespaceMembershipRepository,
+	}
+	removeNamespaceMembershipUseCase := namespaces.RemoveNamespaceMembershipUseCase{
+		NamespaceMembershipRepository: memoryNamespaceMembershipRepository,
+		NamespaceRepository:           namespaceRepository,
 	}
 
 	controllers.InitRoutes(
@@ -136,7 +143,9 @@ func initDependencies(router *gin.Engine) {
 		getApplicationLogsUseCase,
 		getApplicationMetricsUseCase,
 		getApplicationStatusUseCase,
+		fillApplicationsStatusUseCase,
 		createNamespaceMembershipUseCase,
+		removeNamespaceMembershipUseCase,
 		deleteNamespaceByIDUseCase,
 		updateNamespaceByIDUseCase,
 	)

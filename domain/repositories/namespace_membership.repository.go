@@ -19,6 +19,10 @@ type NamespaceMembershipRepository interface {
 	Create(namespaceMembership commands.CreateNamespaceMembership) (*domain.NamespaceMembership, error)
 	// Delete deletes a namespace membership
 	Delete(namespaceMembershipID string) (*domain.NamespaceMembership, error)
+	// RemoveByNamespaceIDAndUserID removes a namespace membership by namespace ID and user ID
+	RemoveByNamespaceIDAndUserID(userID string, namespaceID string) (*domain.NamespaceMembership, error)
+	// IsAdminInNamespace returns true if a user is an admin in a namespace
+	IsAdminInNamespace(namespaceID string, userID string) (bool, error)
 	// Update updates a namespace membership
 	Update(namespaceMembership commands.UpdateNamespaceMembership) (*domain.NamespaceMembership, error)
 }

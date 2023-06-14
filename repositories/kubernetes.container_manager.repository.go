@@ -7,6 +7,7 @@ import (
 	"cloud-app-hive/domain/commands"
 	"cloud-app-hive/utils"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"sort"
 
 	//"cloud-app-hive/utils"
 	"context"
@@ -762,6 +763,10 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 			Message:            condition.Message,
 		})
 	}
+	// Order by last update time desc (to get the last condition)
+	sort.Slice(deploymentConditions, func(i, j int) bool {
+		return deploymentConditions[i].LastUpdateTime > deploymentConditions[j].LastUpdateTime
+	})
 
 	applicationStatus := domain.ApplicationStatus{
 		DeploymentName:      deployment.Name,
@@ -774,15 +779,14 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 		CurrentReplicas:     deployment.Status.Replicas,
 		UpdatedReplicas:     deployment.Status.UpdatedReplicas,
 		DeploymentCondition: deploymentConditions,
-		ServiceStatus:       domain.ServiceStatus{
-			// TODO
-			// Name:              service.Name,
-			// ClusterIP:         service.Status.LoadBalancer
-			// Type:              string(service.Spec.Type),
-			// StatusInString:    service.Status.String(),
+		ServiceStatus: domain.ServiceStatus{
+			Name: serviceName,
+			Type: string(service.Spec.Type),
+			IP:   service.Spec.ClusterIP,
+			Port: service.Spec.Ports[0].Port,
 		},
 		IngressStatus: domain.IngressStatus{
-			// TODO
+			Name: ingress.Name,
 		},
 	}
 

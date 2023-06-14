@@ -16,7 +16,7 @@ type GORMNamespaceRepository struct {
 // FindByID returns a namespace by its ID
 func (r GORMNamespaceRepository) FindByID(id string) (*domain.Namespace, error) {
 	app := domain.Namespace{}
-	result := r.Database.Preload("Memberships").Find(&app, domain.Namespace{
+	result := r.Database.Preload("Memberships").Preload("Applications").Find(&app, domain.Namespace{
 		ID: id,
 	}).Limit(1)
 	if result.Error != nil {
@@ -62,7 +62,6 @@ func (r GORMNamespaceRepository) Find(findNamespaces commands.FindNamespaces) ([
 
 	result := r.Database.Preload("Memberships").Preload("Applications")
 	if findNamespaces.Name != nil && *findNamespaces.Name != "" {
-		fmt.Println("name", *findNamespaces.Name)
 		result = result.Where("name = ?", findNamespaces.Name)
 	}
 	result = result.Find(&foundNamespaces).Limit(findNamespaces.PerPage).Offset(findNamespaces.PerPage * (findNamespaces.Page - 1))

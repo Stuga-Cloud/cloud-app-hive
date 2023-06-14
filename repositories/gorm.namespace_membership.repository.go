@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"cloud-app-hive/controllers/errors"
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/commands"
 	"fmt"
@@ -113,6 +114,36 @@ func (r GORMNamespaceMembershipRepository) Delete(namespaceMembershipID string) 
 		return nil, fmt.Errorf("error deleting namespace membership: %w", result.Error)
 	}
 	return &namespaceMembership, nil
+}
+
+// RemoveByNamespaceIDAndUserID removes a namespace membership by namespace ID and user ID
+func (r GORMNamespaceMembershipRepository) RemoveByNamespaceIDAndUserID(namespaceID string, userID string) (*domain.NamespaceMembership, error) {
+	namespaceMembership := domain.NamespaceMembership{}
+
+	result := r.Database.Delete(&namespaceMembership, domain.NamespaceMembership{
+		NamespaceID: namespaceID,
+		UserID:      userID,
+	})
+	if result.Error != nil {
+		return nil, fmt.Errorf("error deleting namespace membership: %w", result.Error)
+	}
+	return &namespaceMembership, nil
+}
+
+// IsAdminInNamespace returns true if the user is an admin in the namespace
+func (r GORMNamespaceMembershipRepository) IsAdminInNamespace(userID string, namespaceID string) (bool, error) {
+	namespaceMembership := domain.NamespaceMembership{}
+	result := r.Database.Find(&namespaceMembership, domain.NamespaceMembership{
+		UserID:      userID,
+		NamespaceID: namespaceID,
+	}).Limit(1)
+	if result.Error != nil {
+		return false, fmt.Errorf("error finding namespace membership: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return false, errors.NewUnauthorizedToAccessNamespaceError(namespaceID, "", userID)
+	}
+	return namespaceMembership.Role == domain.RoleAdmin, nil
 }
 
 // Update updates a namespace membership

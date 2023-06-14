@@ -15,8 +15,8 @@ const (
 // NamespaceMembership is a struct that represents a user's membership to a namespace
 type NamespaceMembership struct {
 	ID          string          `json:"id" gorm:"primaryKey"`
-	UserID      string          `json:"user_id" gorm:"not null"`
-	NamespaceID string          `json:"namespace_id" gorm:"size:100;not null"`
+	UserID      string          `json:"userId" gorm:"not null"`
+	NamespaceID string          `json:"namespaceId" gorm:"size:100;not null"`
 	Role        Role            `json:"role" gorm:"enum:ADMIN,MEMBER;not null"`
 	UpdatedAt   time.Time       `json:"updatedAt" gorm:"autoUpdateTime;not null"`
 	CreatedAt   time.Time       `json:"createdAt" gorm:"autoCreateTime;not null"`

@@ -1,6 +1,7 @@
 package namespaces
 
 import (
+	"cloud-app-hive/use_cases/applications"
 	"cloud-app-hive/use_cases/namespaces"
 	"github.com/gin-gonic/gin"
 )
@@ -11,16 +12,20 @@ func InitNamespacesRoutes(
 	findNamespaceByIDUseCase namespaces.FindNamespaceByIDUseCase,
 	findNamespacesUseCase namespaces.FindNamespacesUseCase,
 	createNamespaceMembershipUseCase namespaces.CreateNamespaceMembershipUseCase,
+	removeNamespaceMembershipUseCase namespaces.RemoveNamespaceMembershipUseCase,
 	deleteNamespaceByIDUseCase namespaces.DeleteNamespaceByIDUseCase,
 	updateNamespaceByIDUseCase namespaces.UpdateNamespaceByIDUseCase,
+	fillApplicationsStatusUseCase applications.FillApplicationStatusUseCase,
 ) {
 	namespaceController := NewNamespaceController(
 		createNamespaceUseCase,
 		findNamespacesUseCase,
 		findNamespaceByIDUseCase,
 		createNamespaceMembershipUseCase,
+		removeNamespaceMembershipUseCase,
 		deleteNamespaceByIDUseCase,
 		updateNamespaceByIDUseCase,
+		fillApplicationsStatusUseCase,
 	)
 
 	router.POST("/namespaces", namespaceController.CreateNamespaceController)
@@ -30,4 +35,5 @@ func InitNamespacesRoutes(
 	router.PUT("/namespaces/:id", namespaceController.UpdateNamespaceByIDController)
 
 	router.POST("/namespaces/:id/memberships", namespaceController.AddMemberToNamespaceController)
+	router.DELETE("/namespaces/:id/memberships/:userId", namespaceController.RemoveMemberFromNamespaceController)
 }
