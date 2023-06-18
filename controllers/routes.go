@@ -17,6 +17,7 @@ func InitRoutes(
 	findNamespaceByIDUseCase namespaceUseCases.FindNamespaceByIDUseCase,
 	findNamespacesUseCase namespaceUseCases.FindNamespacesUseCase,
 	findApplicationsUseCase applicationsUseCases.FindApplicationsUseCase,
+	findApplicationByIDUseCase applicationsUseCases.FindApplicationByIDUseCase,
 	createApplicationUseCase applicationsUseCases.CreateApplicationUseCase,
 	updateApplicationUseCase applicationsUseCases.UpdateApplicationUseCase,
 	deleteApplicationUseCase applicationsUseCases.DeleteApplicationUseCase,
@@ -48,6 +49,7 @@ func InitRoutes(
 		applications.InitApplicationsRoutes(
 			api,
 			findApplicationsUseCase,
+			findApplicationByIDUseCase,
 			createApplicationUseCase,
 			updateApplicationUseCase,
 			deleteApplicationUseCase,
@@ -56,6 +58,7 @@ func InitRoutes(
 			getApplicationLogsUseCase,
 			getApplicationMetricsUseCase,
 			getApplicationStatusUseCase,
+			fillApplicationsStatusUseCase,
 		)
 	}
 

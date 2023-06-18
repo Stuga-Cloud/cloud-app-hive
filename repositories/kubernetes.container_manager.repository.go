@@ -7,8 +7,6 @@ import (
 	"cloud-app-hive/domain/commands"
 	"cloud-app-hive/utils"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"sort"
-
 	//"cloud-app-hive/utils"
 	"context"
 	"fmt"
@@ -154,7 +152,14 @@ func (containerManager KubernetesContainerManagerRepository) ApplyApplication(
 		}
 	}
 
-	err = containerManager.applyDeployment(clientset, applyApplication)
+	secretOriginalKeyWithConvertedK8sKey, err := containerManager.applySecrets(clientset, applyApplication)
+	if err != nil {
+		return &customErrors.ContainerManagerError{
+			Message: "While applying secrets - " + err.Error(),
+		}
+	}
+
+	err = containerManager.applyDeployment(clientset, applyApplication, secretOriginalKeyWithConvertedK8sKey)
 	if err != nil {
 		return &customErrors.ContainerManagerError{
 			Message: "While applying deployment - " + err.Error(),
@@ -203,7 +208,7 @@ func (containerManager KubernetesContainerManagerRepository) applyNamespace(
 	return nil
 }
 
-func (containerManager KubernetesContainerManagerRepository) applyDeployment(clientset *kubernetes.Clientset, deployApplication commands.ApplyApplication) error {
+func (containerManager KubernetesContainerManagerRepository) applyDeployment(clientset *kubernetes.Clientset, deployApplication commands.ApplyApplication, secretOriginalKeyWithConvertedK8sKey map[string]string) error {
 	applicationNamespace := deployApplication.Namespace
 	applicationName := deployApplication.Name
 	applicationImage := deployApplication.Image
@@ -215,13 +220,29 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 			Value: environmentVariable.Val,
 		})
 	}
+
+	secretName := fmt.Sprintf("%s-secrets", applicationName)
+	// Add secret keys to environment variables
+	for secretOriginalKey, convertedK8sKey := range secretOriginalKeyWithConvertedK8sKey {
+		applicationEnvironmentVariables = append(applicationEnvironmentVariables, v1.EnvVar{
+			Name: secretOriginalKey,
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					Key: convertedK8sKey,
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: secretName,
+					},
+				},
+			},
+		})
+	}
+
 	var replicas int32
 	if deployApplication.ApplicationType == domain.SingleInstance {
 		replicas = 1
 	} else {
 		replicas = deployApplication.ScalabilitySpecifications.Replicas
 	}
-	// TODO : Add CPU, Memory and Storage limits
 	rawCpuLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.CPULimit.Val, deployApplication.ContainerSpecifications.CPULimit.Unit)
 	rawMemoryLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.MemoryLimit.Val, deployApplication.ContainerSpecifications.MemoryLimit.Unit)
 	cpuLimit := resource.MustParse(utils.ConvertReadableHumanValueAndUnitToK8sResource(rawCpuLimit))
@@ -248,12 +269,17 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 					},
 				},
 				Spec: v1.PodSpec{
+					// TODO Image can be from docker hub or private registry (url =registry-cloud.machavoine.fr)
+					//ImagePullSecrets: []v1.LocalObjectReference{
+					//	{
+					//		Name: "registry-cloud",
+					//	},
+					//},
 					Containers: []v1.Container{
 						{
 							Name:  applicationName,
 							Image: applicationImage,
-							// Declare environment variables from deployApplication.EnvironmentVariables array
-							Env: applicationEnvironmentVariables,
+							Env:   applicationEnvironmentVariables,
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
 									v1.ResourceCPU:    cpuLimit,
@@ -295,53 +321,65 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 }
 
 // Add secrets to the application
-func (containerManager KubernetesContainerManagerRepository) applySecrets(clientset *kubernetes.Clientset, deployApplication commands.ApplyApplication) error {
+func (containerManager KubernetesContainerManagerRepository) applySecrets(clientset *kubernetes.Clientset, deployApplication commands.ApplyApplication) (map[string]string, error) {
 	applicationNamespace := deployApplication.Namespace
 	applicationSecrets := deployApplication.Secrets
 
+	// While applying secrets -
+	//Error while creating secrets : Secret "A_SECRET_ENVIRONMENT_VARIABLE" is invalid:
+	// => metadata.name: Invalid value: "A_SECRET_ENVIRONMENT_VARIABLE":
+	// 		a lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.',
+	//		and must start and end with an alphanumeric character (e.g. 'example.com', regex used for validation is
+	//		'[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*') (application a-second-basic-api in namespace
+	//		my-big-namespace with image williamqch/basic-api:latest failed to deploy at 2023-06-16T16:20:36Z)
+	secretName := fmt.Sprintf("%s-secrets", deployApplication.Name)
+
+	stringData := make(map[string]string)
+	secretOriginalKeyWithConvertedK8sKey := make(map[string]string)
 	for _, secret := range applicationSecrets {
-		secretName := secret.Name
+		secretKey := strings.ToLower(secret.Name)
+		secretOriginalKeyWithConvertedK8sKey[secret.Name] = secretKey
 		secretVal := secret.Val
-		secretKey := secret.Name
 
-		secret := &v1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secretName,
-				Namespace: applicationNamespace,
-			},
-			StringData: map[string]string{
-				secretKey: secretVal,
-			},
-		}
-
-		_, err := clientset.CoreV1().Secrets(applicationNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
-		if err == nil {
-			_, err = clientset.CoreV1().Secrets(applicationNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
-			if err != nil {
-				return &customErrors.ContainerManagerApplicationDeploymentError{
-					Message:         fmt.Sprintf("Error while updating secret : %s", err.Error()),
-					ApplicationName: deployApplication.Name,
-					Namespace:       deployApplication.Namespace,
-					Image:           deployApplication.Image,
-				}
-			}
-		} else {
-			_, err = clientset.CoreV1().Secrets(applicationNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
-			if err != nil {
-				return &customErrors.ContainerManagerApplicationDeploymentError{
-					Message:         fmt.Sprintf("Error while creating secret : %s", err.Error()),
-					ApplicationName: deployApplication.Name,
-					Namespace:       deployApplication.Namespace,
-					Image:           deployApplication.Image,
-				}
-			}
-		}
-
-		fmt.Println("Secret created successfully : " + secretName + " in namespace " + applicationNamespace)
+		stringData[secretKey] = secretVal
+	}
+	secrets := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: applicationNamespace,
+		},
+		StringData: stringData,
+		Type:       v1.SecretTypeOpaque,
 	}
 
-	return nil
+	_, err := clientset.CoreV1().Secrets(applicationNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
+	if err == nil {
+		_, err = clientset.CoreV1().Secrets(applicationNamespace).Update(context.Background(), secrets, metav1.UpdateOptions{})
+		if err != nil {
+			return nil, &customErrors.ContainerManagerApplicationDeploymentError{
+				Message:         fmt.Sprintf("Error while updating secrets : %s", err.Error()),
+				ApplicationName: deployApplication.Name,
+				Namespace:       deployApplication.Namespace,
+				Image:           deployApplication.Image,
+			}
+		}
+	} else {
+		_, err = clientset.CoreV1().Secrets(applicationNamespace).Create(context.Background(), secrets, metav1.CreateOptions{})
+		if err != nil {
+			return nil, &customErrors.ContainerManagerApplicationDeploymentError{
+				Message:         fmt.Sprintf("Error while creating secrets : %s", err.Error()),
+				ApplicationName: deployApplication.Name,
+				Namespace:       deployApplication.Namespace,
+				Image:           deployApplication.Image,
+			}
+		}
+	}
+
+	fmt.Println("Secret created successfully : " + secretName + " in namespace " + applicationNamespace)
+
+	return secretOriginalKeyWithConvertedK8sKey, nil
 }
+
 func FrenchReadableResourceUnitToKubernetesCPUUnit(resourceUnit domain.ContainerMemoryLimitUnit) string {
 	switch resourceUnit {
 	case domain.MB:
@@ -686,19 +724,24 @@ func (containerManager KubernetesContainerManagerRepository) deletePods(clientse
 	return nil
 }
 
-//func (containerManager KubernetesContainerManagerRepository) deleteNamespace(clientset *kubernetes.Clientset, deployApplication commands.UnapplyApplication) error {
-//	applicationNamespace := deployApplication.NamespaceID
-//	err := clientset.CoreV1().Namespaces().Delete(context.Background(), applicationNamespace, metav1.DeleteOptions{})
-//	if err != nil {
-//		return &customErrors.ContainerManagerApplicationRemoveError{
-//			Message:         fmt.Sprintf("Error deleting namespace : %s", err.Error()),
-//			ApplicationName: deployApplication.Name,
-//			Namespace:       deployApplication.NamespaceID,
-//		}
-//	}
-//	fmt.Println("NamespaceID deleted successfully : " + applicationNamespace)
-//	return nil
-//}
+func (containerManager KubernetesContainerManagerRepository) DeleteNamespace(namespace string) error {
+	clientset, err := containerManager.connectToKubernetesAPI()
+	if err != nil {
+		return &customErrors.ContainerManagerError{
+			Message: fmt.Sprintf("Connecting to Kubernetes API while deleting namespace failed : %s", err.Error()),
+		}
+	}
+
+	err = clientset.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
+	if err != nil {
+		return &customErrors.ContainerManagerNamespaceRemoveError{
+			Message:   fmt.Sprintf("Error deleting namespace %s : %s", namespace, err.Error()),
+			Namespace: namespace,
+		}
+	}
+	fmt.Println("NamespaceID deleted successfully : " + namespace)
+	return nil
+}
 
 func (containerManager KubernetesContainerManagerRepository) GetApplicationStatus(deployApplication commands.GetApplicationStatus) (*domain.ApplicationStatus, error) {
 	applicationNamespace := deployApplication.Namespace
@@ -735,7 +778,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 			Type:            "Service",
 		}
 	}
-	fmt.Printf("Service status : %s", service.Status.String())
+	//fmt.Printf("Service status : %s", service.Status.String())
 
 	ingressName := fmt.Sprintf("%s-ingress", applicationName)
 
@@ -763,10 +806,12 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 			Message:            condition.Message,
 		})
 	}
-	// Order by last update time desc (to get the last condition)
-	sort.Slice(deploymentConditions, func(i, j int) bool {
-		return deploymentConditions[i].LastUpdateTime > deploymentConditions[j].LastUpdateTime
-	})
+
+	// REVERSE the deploymentConditions slice
+	//for i := len(deploymentConditions)/2 - 1; i >= 0; i-- {
+	//	opp := len(deploymentConditions) - 1 - i
+	//	deploymentConditions[i], deploymentConditions[opp] = deploymentConditions[opp], deploymentConditions[i]
+	//}
 
 	applicationStatus := domain.ApplicationStatus{
 		DeploymentName:      deployment.Name,

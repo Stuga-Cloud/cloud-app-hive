@@ -211,6 +211,7 @@ func (namespaceController NamespaceController) DeleteNamespaceByIDController(c *
 
 	namespace, err := namespaceController.deleteNamespaceByIDUseCase.Execute(namespaceID, userID)
 	if err != nil {
+		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

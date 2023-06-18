@@ -6,11 +6,11 @@ import (
 
 // CreateApplication is a command that represents the deployment of an application
 type CreateApplication struct {
+	UserID                    string
 	Name                      string
 	Description               string
 	Image                     string
 	NamespaceID               string
-	UserID                    string
 	Port                      uint32
 	Zone                      string
 	ApplicationType           domain.ApplicationType

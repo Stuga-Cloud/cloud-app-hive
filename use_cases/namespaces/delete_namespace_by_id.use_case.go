@@ -8,10 +8,24 @@ import (
 )
 
 type DeleteNamespaceByIDUseCase struct {
-	NamespaceRepository repositories.NamespaceRepository
+	NamespaceRepository        repositories.NamespaceRepository
+	ContainerManagerRepository repositories.ContainerManagerRepository
 }
 
 func (deleteNamespaceByIDUseCase DeleteNamespaceByIDUseCase) Execute(id string, userId string) (*domain.Namespace, error) {
+	foundNamespace, err := deleteNamespaceByIDUseCase.NamespaceRepository.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if foundNamespace == nil {
+		return nil, fmt.Errorf("namespace not found with ID %s while deleting", id)
+	}
+
+	err = deleteNamespaceByIDUseCase.ContainerManagerRepository.DeleteNamespace(foundNamespace.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	namespace, err := deleteNamespaceByIDUseCase.NamespaceRepository.Delete(id, userId)
 	if err != nil {
 		fmt.Println(err)

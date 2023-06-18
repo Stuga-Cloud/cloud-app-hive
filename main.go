@@ -59,6 +59,8 @@ func initDependencies(router *gin.Engine) {
 		panic(err)
 	}
 
+	containerManagerRepository := repositories.KubernetesContainerManagerRepository{}
+
 	// Namespace dependencies
 	namespaceRepository := repositories.GORMNamespaceRepository{
 		Database: db,
@@ -73,7 +75,8 @@ func initDependencies(router *gin.Engine) {
 		NamespaceRepository: namespaceRepository,
 	}
 	deleteNamespaceByIDUseCase := namespaces.DeleteNamespaceByIDUseCase{
-		NamespaceRepository: namespaceRepository,
+		NamespaceRepository:        namespaceRepository,
+		ContainerManagerRepository: containerManagerRepository,
 	}
 	updateNamespaceByIDUseCase := namespaces.UpdateNamespaceByIDUseCase{
 		NamespaceRepository: namespaceRepository,
@@ -83,8 +86,10 @@ func initDependencies(router *gin.Engine) {
 	applicationRepository := repositories.GORMApplicationRepository{
 		Database: db,
 	}
-	containerManagerRepository := repositories.KubernetesContainerManagerRepository{}
 	findApplicationsUseCase := applications.FindApplicationsUseCase{
+		ApplicationRepository: applicationRepository,
+	}
+	findApplicationByIDUseCase := applications.FindApplicationByIDUseCase{
 		ApplicationRepository: applicationRepository,
 	}
 	createApplicationUseCase := applications.CreateApplicationUseCase{
@@ -135,6 +140,7 @@ func initDependencies(router *gin.Engine) {
 		findNamespaceByIDUseCase,
 		findNamespacesUseCase,
 		findApplicationsUseCase,
+		findApplicationByIDUseCase,
 		createApplicationUseCase,
 		updateApplicationUseCase,
 		deleteApplicationUseCase,

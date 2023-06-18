@@ -8,6 +8,7 @@ import (
 func InitApplicationsRoutes(
 	router *gin.RouterGroup,
 	findApplicationsUseCase applications.FindApplicationsUseCase,
+	findApplicationByIDUseCase applications.FindApplicationByIDUseCase,
 	createApplicationUseCase applications.CreateApplicationUseCase,
 	updateApplicationUseCase applications.UpdateApplicationUseCase,
 	deleteApplicationUseCase applications.DeleteApplicationUseCase,
@@ -16,9 +17,11 @@ func InitApplicationsRoutes(
 	getApplicationLogsUseCase applications.GetApplicationLogsUseCase,
 	getApplicationMetricsUseCase applications.GetApplicationMetricsUseCase,
 	getApplicationStatusUseCase applications.GetApplicationStatusUseCase,
+	fillApplicationStatusUseCase applications.FillApplicationStatusUseCase,
 ) {
 	applicationController := NewApplicationController(
 		findApplicationsUseCase,
+		findApplicationByIDUseCase,
 		createApplicationUseCase,
 		updateApplicationUseCase,
 		deleteApplicationUseCase,
@@ -27,13 +30,15 @@ func InitApplicationsRoutes(
 		getApplicationLogsUseCase,
 		getApplicationMetricsUseCase,
 		getApplicationStatusUseCase,
+		fillApplicationStatusUseCase,
 	)
 	router.GET("/applications", applicationController.FindApplicationsController)
 	router.POST("/applications", applicationController.CreateAndDeployApplicationController)
+	router.GET("/applications/:id", applicationController.FindApplicationByIDController)
 	router.PUT("/applications/:id", applicationController.UpdateApplicationByNameAndNamespaceController)
-	router.GET("/applications/:namespace/:name/metrics", applicationController.GetMetricsByApplicationNameAndNamespaceController)
-	router.GET("/applications/:namespace/:name/logs", applicationController.GetLogsByApplicationNameAndNamespaceController)
-	router.GET("/applications/:namespace/:name/status", applicationController.GetStatusByApplicationNameAndNamespaceController)
+	router.GET("/applications/:id/metrics", applicationController.GetMetricsByApplicationNameAndNamespaceController)
+	router.GET("/applications/:id/logs", applicationController.GetLogsByApplicationNameAndNamespaceController)
+	router.GET("/applications/:id/status", applicationController.GetStatusByApplicationNameAndNamespaceController)
 	// router.GET("/applications", applicationControllers.GetApplicationController) TODO when database is implemented
 	// router.GET("/applications/:namespace/:name", applicationControllers.GetApplicationByNameAndNamespaceController) TODO
 	// router.GET("/applications/:userId", applicationControllers.GetApplicationByUserIdController) TODO

@@ -66,7 +66,6 @@ func ConvertReadableHumanValueAndUnitToK8sResource(value string) string {
 
 	// Check if the unit exists in the map
 	if k8sUnit, ok := realLifeUnitToK8sUnit[unit]; ok {
-		fmt.Println("Real life unit to k8s unit: ", k8sUnit)
 		return fmt.Sprintf("%s%s", value, k8sUnit)
 	}
 

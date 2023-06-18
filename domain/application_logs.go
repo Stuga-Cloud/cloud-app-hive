@@ -1,6 +1,6 @@
 package domain
 
 type ApplicationLogs struct {
-	PodName string
-	Logs    string
+	PodName string `json:"podName"`
+	Logs    string `json:"logs"`
 }

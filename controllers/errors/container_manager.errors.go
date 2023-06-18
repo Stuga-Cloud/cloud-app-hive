@@ -54,3 +54,12 @@ type ContainerManagerApplicationInformationError struct {
 func (e *ContainerManagerApplicationInformationError) Error() string {
 	return fmt.Sprintf("%s (application %s in namespace %s with type %s failed to get information at %s)", e.Message, e.ApplicationName, e.Namespace, e.Type, time.Now().UTC().Format(time.RFC3339))
 }
+
+type ContainerManagerNamespaceRemoveError struct {
+	Message   string
+	Namespace string
+}
+
+func (e *ContainerManagerNamespaceRemoveError) Error() string {
+	return fmt.Sprintf("%s (namespace %s failed to remove at %s)", e.Message, e.Namespace, time.Now().UTC().Format(time.RFC3339))
+}

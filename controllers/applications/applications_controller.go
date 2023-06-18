@@ -1,6 +1,7 @@
 package applications
 
 import (
+	"cloud-app-hive/domain"
 	validators "cloud-app-hive/validators"
 	"fmt"
 	"net/http"
@@ -17,19 +18,22 @@ import (
 )
 
 type ApplicationController struct {
-	findApplicationsUseCase      applications.FindApplicationsUseCase
-	createApplicationUseCase     applications.CreateApplicationUseCase
-	updateApplicationUseCase     applications.UpdateApplicationUseCase
-	deleteApplicationUseCase     applications.DeleteApplicationUseCase
-	deployApplicationUseCase     applications.DeployApplicationUseCase
-	undeployApplicationUseCase   applications.UndeployApplicationUseCase
-	getApplicationLogsUseCase    applications.GetApplicationLogsUseCase
-	getApplicationMetricsUseCase applications.GetApplicationMetricsUseCase
-	getApplicationStatusUseCase  applications.GetApplicationStatusUseCase
+	findApplicationsUseCase       applications.FindApplicationsUseCase
+	findApplicationByIDUseCase    applications.FindApplicationByIDUseCase
+	createApplicationUseCase      applications.CreateApplicationUseCase
+	updateApplicationUseCase      applications.UpdateApplicationUseCase
+	deleteApplicationUseCase      applications.DeleteApplicationUseCase
+	deployApplicationUseCase      applications.DeployApplicationUseCase
+	undeployApplicationUseCase    applications.UndeployApplicationUseCase
+	getApplicationLogsUseCase     applications.GetApplicationLogsUseCase
+	getApplicationMetricsUseCase  applications.GetApplicationMetricsUseCase
+	getApplicationStatusUseCase   applications.GetApplicationStatusUseCase
+	fillApplicationsStatusUseCase applications.FillApplicationStatusUseCase
 }
 
 func NewApplicationController(
 	findApplicationsUseCase applications.FindApplicationsUseCase,
+	findApplicationByIDUseCase applications.FindApplicationByIDUseCase,
 	createApplicationUseCase applications.CreateApplicationUseCase,
 	updateApplicationUseCase applications.UpdateApplicationUseCase,
 	deleteApplicationUseCase applications.DeleteApplicationUseCase,
@@ -38,17 +42,20 @@ func NewApplicationController(
 	getApplicationLogsUseCase applications.GetApplicationLogsUseCase,
 	getApplicationMetricsUseCase applications.GetApplicationMetricsUseCase,
 	getApplicationStatusUseCase applications.GetApplicationStatusUseCase,
+	fillApplicationsStatusUseCase applications.FillApplicationStatusUseCase,
 ) ApplicationController {
 	return ApplicationController{
-		findApplicationsUseCase:      findApplicationsUseCase,
-		createApplicationUseCase:     createApplicationUseCase,
-		updateApplicationUseCase:     updateApplicationUseCase,
-		deleteApplicationUseCase:     deleteApplicationUseCase,
-		deployApplicationUseCase:     deployApplicationUseCase,
-		undeployApplicationUseCase:   undeployApplicationUseCase,
-		getApplicationLogsUseCase:    getApplicationLogsUseCase,
-		getApplicationMetricsUseCase: getApplicationMetricsUseCase,
-		getApplicationStatusUseCase:  getApplicationStatusUseCase,
+		findApplicationsUseCase:       findApplicationsUseCase,
+		findApplicationByIDUseCase:    findApplicationByIDUseCase,
+		createApplicationUseCase:      createApplicationUseCase,
+		updateApplicationUseCase:      updateApplicationUseCase,
+		deleteApplicationUseCase:      deleteApplicationUseCase,
+		deployApplicationUseCase:      deployApplicationUseCase,
+		undeployApplicationUseCase:    undeployApplicationUseCase,
+		getApplicationLogsUseCase:     getApplicationLogsUseCase,
+		getApplicationMetricsUseCase:  getApplicationMetricsUseCase,
+		getApplicationStatusUseCase:   getApplicationStatusUseCase,
+		fillApplicationsStatusUseCase: fillApplicationsStatusUseCase,
 	}
 }
 
@@ -69,6 +76,8 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 		controllerValidators.Unauthorized(c)
 		return
 	}
+
+	fmt.Println("Request body: ", c.Request.Body)
 
 	var createApplicationRequest requests.CreateApplicationRequest
 	if err := c.ShouldBindJSON(&createApplicationRequest); err != nil {
@@ -118,6 +127,9 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 		AdministratorEmail:        createApplicationRequest.AdministratorEmail,
 	}
 
+	fmt.Println("createApplicationRequest environment variables: ", createApplicationRequest.EnvironmentVariables)
+	fmt.Println("createApplicationRequest secrets: ", createApplicationRequest.Secrets)
+
 	application, namespace, err := applicationController.createApplicationUseCase.Execute(createApplication)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -139,8 +151,8 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 		ScalabilitySpecifications: *application.ScalabilitySpecifications,
 	}
 	err = deployApplicationUseCase.Execute(applyApplication)
-
 	if err != nil {
+		fmt.Println("Error while deploying application: ", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -192,6 +204,48 @@ func (applicationController ApplicationController) FindApplicationsController(c 
 	c.JSON(http.StatusOK, gin.H{"applications": foundApplications})
 }
 
+func (applicationController ApplicationController) FindApplicationByIDController(c *gin.Context) {
+	if !controllerValidators.ValidateAuthorizationToken(c) {
+		controllerValidators.Unauthorized(c)
+		return
+	}
+
+	applicationID := c.Param("id")
+	if applicationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": "Application ID url param is required"})
+		return
+	}
+
+	queryByUserID := c.Query("userId")
+	if queryByUserID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": "userId query param is required"})
+		return
+	}
+
+	foundApplication, err := applicationController.findApplicationByIDUseCase.Execute(commands.FindApplicationByID{
+		ApplicationID: applicationID,
+		QueryByUserID: queryByUserID,
+	})
+	if err != nil {
+		if _, ok := err.(*errors.UnauthorizedToAccessNamespaceError); ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	applicationsWithStatus, err := applicationController.fillApplicationsStatusUseCase.Execute(foundApplication.Namespace.Name, []domain.Application{*foundApplication})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	foundApplication = &applicationsWithStatus[0]
+
+	c.JSON(http.StatusOK, gin.H{"application": foundApplication})
+}
+
 func (applicationController ApplicationController) UpdateApplicationByNameAndNamespaceController(c *gin.Context) {
 	if !controllerValidators.ValidateAuthorizationToken(c) {
 		controllerValidators.Unauthorized(c)
@@ -232,8 +286,8 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 		Image:                     updateApplicationRequest.Image,
 		Port:                      updateApplicationRequest.Port,
 		ApplicationType:           updateApplicationRequest.ApplicationType,
-		EnvironmentVariables:      nil,
-		Secrets:                   nil,
+		EnvironmentVariables:      updateApplicationRequest.EnvironmentVariables,
+		Secrets:                   updateApplicationRequest.Secrets,
 		ContainerSpecifications:   updateApplicationRequest.ContainerSpecifications,
 		ScalabilitySpecifications: updateApplicationRequest.ScalabilitySpecifications,
 		AdministratorEmail:        updateApplicationRequest.AdministratorEmail,
@@ -261,6 +315,7 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 	}
 	err = applicationController.deployApplicationUseCase.Execute(applyApplication)
 	if err != nil {
+		fmt.Println("Error while deploying application: ", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -285,22 +340,38 @@ func (applicationController ApplicationController) DeleteApplicationByIDControll
 		return
 	}
 
+	foundApplication, err := applicationController.findApplicationByIDUseCase.Execute(commands.FindApplicationByID{
+		ApplicationID: applicationID,
+		QueryByUserID: userID,
+	})
+	if err != nil {
+		fmt.Println(err)
+		if _, ok := err.(*errors.UnauthorizedToAccessNamespaceError); ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	unapplyApplication := commands.UnapplyApplication{
+		Name:      foundApplication.Name,
+		Namespace: foundApplication.Namespace.Name,
+	}
+	err = applicationController.undeployApplicationUseCase.Execute(unapplyApplication)
+	if err != nil {
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	deleteApplication := commands.DeleteApplication{
 		ID:     applicationID,
 		UserID: userID,
 	}
 	deletedApplication, err := applicationController.deleteApplicationUseCase.Execute(deleteApplication)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	unapplyApplication := commands.UnapplyApplication{
-		Name:      deletedApplication.Name,
-		Namespace: deletedApplication.Namespace.Name,
-	}
-	err = applicationController.undeployApplicationUseCase.Execute(unapplyApplication)
-	if err != nil {
+		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -318,18 +389,38 @@ func (applicationController ApplicationController) GetMetricsByApplicationNameAn
 		return
 	}
 
-	applicationNamespace := c.Param("namespace")
-	applicationName := c.Param("name")
-	if applicationNamespace == "" || applicationName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Namespace and name must be provided"})
+	applicationID := c.Param("id")
+	if applicationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Application ID url param must be provided"})
+		return
+	}
+	queryBy := c.Query("userId")
+	if queryBy == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "userId query param must be provided"})
 		return
 	}
 
-	application := commands.GetApplicationMetrics{
+	application, err := applicationController.findApplicationByIDUseCase.Execute(commands.FindApplicationByID{
+		ApplicationID: applicationID,
+		QueryByUserID: queryBy,
+	})
+	if err != nil {
+		if _, ok := err.(*errors.UnauthorizedToAccessNamespaceError); ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	applicationNamespace := application.Namespace.Name
+	applicationName := application.Name
+
+	getApplicationMetrics := commands.GetApplicationMetrics{
 		Name:      applicationName,
 		Namespace: applicationNamespace,
 	}
-	metrics, err := applicationController.getApplicationMetricsUseCase.Execute(application)
+	metrics, err := applicationController.getApplicationMetricsUseCase.Execute(getApplicationMetrics)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error while getting metrics": err.Error()})
 		return
@@ -347,19 +438,43 @@ func (applicationController ApplicationController) GetLogsByApplicationNameAndNa
 		return
 	}
 
-	applicationNamespace := c.Param("namespace")
-	applicationName := c.Param("name")
+	applicationID := c.Param("id")
+	if applicationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Application ID url param must be provided"})
+		return
+	}
+	queryBy := c.Query("userId")
+	if queryBy == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "userId query param must be provided"})
+		return
+	}
+
+	application, err := applicationController.findApplicationByIDUseCase.Execute(commands.FindApplicationByID{
+		ApplicationID: applicationID,
+		QueryByUserID: queryBy,
+	})
+	if err != nil {
+		if _, ok := err.(*errors.UnauthorizedToAccessNamespaceError); ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	applicationNamespace := application.Namespace.Name
+	applicationName := application.Name
 	if applicationNamespace == "" || applicationName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Namespace and name must be provided"})
 
 		return
 	}
 
-	application := commands.GetApplicationLogs{
+	getApplicationLogs := commands.GetApplicationLogs{
 		Name:      applicationName,
 		Namespace: applicationNamespace,
 	}
-	logs, err := applicationController.getApplicationLogsUseCase.Execute(application)
+	logs, err := applicationController.getApplicationLogsUseCase.Execute(getApplicationLogs)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -377,19 +492,43 @@ func (applicationController ApplicationController) GetStatusByApplicationNameAnd
 		return
 	}
 
-	applicationNamespace := c.Param("namespace")
-	applicationName := c.Param("name")
+	applicationID := c.Param("id")
+	if applicationID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Application ID url param must be provided"})
+		return
+	}
+	queryBy := c.Query("userId")
+	if queryBy == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "userId query param must be provided"})
+		return
+	}
+
+	application, err := applicationController.findApplicationByIDUseCase.Execute(commands.FindApplicationByID{
+		ApplicationID: applicationID,
+		QueryByUserID: queryBy,
+	})
+	if err != nil {
+		if _, ok := err.(*errors.UnauthorizedToAccessNamespaceError); ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	applicationNamespace := application.Namespace.Name
+	applicationName := application.Name
 	if applicationNamespace == "" || applicationName == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Namespace and name must be provided"})
 		return
 	}
 
 	// TODO -> Get status from kubernetes
-	application := commands.GetApplicationStatus{
+	getApplicationStatus := commands.GetApplicationStatus{
 		Name:      applicationName,
 		Namespace: applicationNamespace,
 	}
-	status, err := applicationController.getApplicationStatusUseCase.Execute(application)
+	status, err := applicationController.getApplicationStatusUseCase.Execute(getApplicationStatus)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

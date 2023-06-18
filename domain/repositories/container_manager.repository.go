@@ -17,4 +17,6 @@ type ContainerManagerRepository interface {
 	GetApplicationStatus(application commands.GetApplicationStatus) (*domain.ApplicationStatus, error)
 	// UnapplyApplication delete an application on a container manager
 	UnapplyApplication(applyApplication commands.UnapplyApplication) error
+	// DeleteNamespace deletes a namespace on a container manager
+	DeleteNamespace(namespace string) error
 }
