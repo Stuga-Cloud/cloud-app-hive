@@ -76,7 +76,7 @@ func ConvertReadableHumanValueAndUnitToK8sResource(value string) string {
 }
 
 // DoesUsageExceedsLimitAndHowMuchActually function is used to check if the usage exceeds the limit and how much is the actual percentage of usage
-func DoesUsageExceedsLimitAndHowMuchActually(usage string, limit string, acceptedUsagePercentage int64) (bool, float64) {
+func DoesUsageExceedsLimitAndHowMuchActually(usage string, limit string, acceptedUsagePercentage float64) (bool, float64) {
 	usageNumeric := ConvertKubernetesResourceValueAndUnitToNumeric(usage)
 	limitNumeric := ConvertKubernetesResourceValueAndUnitToNumeric(limit)
 
@@ -85,7 +85,7 @@ func DoesUsageExceedsLimitAndHowMuchActually(usage string, limit string, accepte
 	}
 
 	actualPercentage := (usageNumeric / limitNumeric) * 100
-	if actualPercentage > float64(acceptedUsagePercentage) {
+	if actualPercentage > acceptedUsagePercentage {
 		return true, actualPercentage
 	}
 

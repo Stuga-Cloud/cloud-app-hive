@@ -55,6 +55,8 @@ require (
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/mailjet/mailjet-apiv3-go/v3 v3.2.0 // indirect
+	github.com/mailjet/mailjet-apiv3-go/v4 v4.0.1 // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 )

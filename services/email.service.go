@@ -2,48 +2,56 @@ package services
 
 import (
 	"fmt"
-	"net/smtp"
+	"log"
 	"os"
+
+	"github.com/mailjet/mailjet-apiv3-go/v4"
 )
 
 type EmailService struct {
-	host     string
-	port     string
-	username string
-	password string
+	email     string
+	username  string
+	publicKey string
+	secretKey string
 }
 
 func NewEmailService() *EmailService {
 	return &EmailService{
-		host:     os.Getenv("SMTP_HOST"),
-		port:     os.Getenv("SMTP_PORT"),
-		username: os.Getenv("SMTP_USERNAME"),
-		password: os.Getenv("SMTP_PASSWORD"),
+		email:     os.Getenv("SMTP_EMAIL"),
+		username:  os.Getenv("SMTP_USERNAME"),
+		publicKey: os.Getenv("MAIL_JET_API_KEY"),
+		secretKey: os.Getenv("MAIL_JET_SECRET_KEY"),
 	}
 }
 
-func (s *EmailService) Send(to, subject, body string) error {
-	from := s.username
-	msg := "From: " + from + "\n" +
-		"To: " + to + "\n" +
-		"Subject: " + subject + "\n\n" +
-		body
+func (s *EmailService) Send(to, subject, body string, htmlBody string) error {
+	fromEmail := s.email
+	fromUsername := s.username
 
-	fmt.Println("Sending email to", to, "with subject", subject, "and body", body, "from", from)
-
-	err := smtp.SendMail(
-		s.host+":"+s.port,
-		smtp.PlainAuth(
-			"",
-			s.username,
-			s.password,
-			s.host,
-		),
-		from, []string{to}, []byte(msg),
-	)
-
+	mailjetClient := mailjet.NewMailjetClient(s.publicKey, s.secretKey)
+	messagesInfo := []mailjet.InfoMessagesV31{
+		{
+			From: &mailjet.RecipientV31{
+				Email: fromEmail,
+				Name:  fromUsername,
+			},
+			To: &mailjet.RecipientsV31{
+				mailjet.RecipientV31{
+					Email: to,
+				},
+			},
+			Subject:  subject,
+			TextPart: body,
+			HTMLPart: htmlBody,
+		},
+	}
+	messages := mailjet.MessagesV31{Info: messagesInfo}
+	res, err := mailjetClient.SendMailV31(&messages)
 	if err != nil {
+		log.Fatal(err)
 		return err
 	}
+
+	fmt.Printf("Sent email to %s with status %s (subject: %s)\n", res.ResultsV31[0].To[0].Email, res.ResultsV31[0].Status, subject)
 	return nil
 }

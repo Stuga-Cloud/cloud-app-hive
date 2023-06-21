@@ -2,6 +2,7 @@ package main
 
 import (
 	"cloud-app-hive/repositories"
+	"cloud-app-hive/schedulers"
 	"cloud-app-hive/use_cases/applications"
 	"cloud-app-hive/use_cases/namespaces"
 	"os"
@@ -10,16 +11,13 @@ import (
 	"cloud-app-hive/controllers"
 	"cloud-app-hive/database"
 
+	"cloud-app-hive/docs"
+	"context"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-)
-
-import (
-	"context"
-
-	"cloud-app-hive/docs"
 )
 
 var _ = context.Background()
@@ -156,5 +154,5 @@ func initDependencies(router *gin.Engine) {
 		updateNamespaceByIDUseCase,
 	)
 
-	//schedulers.InitSchedulers()
+	schedulers.InitSchedulers()
 }

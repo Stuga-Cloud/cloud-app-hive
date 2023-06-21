@@ -12,7 +12,11 @@ import (
 	"time"
 )
 
-func notifyApplicationScalingRecommendationScheduler(findManualScalingApplicationsUseCase applications.FindManualScalingApplicationsUseCase, getApplicationMetricsUseCase applications.GetApplicationMetricsUseCase, scalabilityNotificationService services.ScalabilityNotificationService) {
+func notifyApplicationScalingRecommendationScheduler(
+	findManualScalingApplicationsUseCase applications.FindManualScalingApplicationsUseCase,
+	getApplicationMetricsUseCase applications.GetApplicationMetricsUseCase,
+	scalabilityNotificationService services.ScalabilityNotificationService,
+) {
 	fmt.Println("Starting NotifyApplicationScalingRecommendation scheduler...")
 	go func() {
 		defer func() {
@@ -42,29 +46,32 @@ func notifyApplicationScalingRecommendationScheduler(findManualScalingApplicatio
 				done := make(chan bool, routines)
 				for _, application := range foundApplications {
 					go func(application domain.Application) {
-						fmt.Println("=====================================================")
 						metrics, err := getApplicationMetricsUseCase.Execute(commands.GetApplicationMetrics{
 							Name:      application.Name,
 							Namespace: application.Namespace.Name,
 						})
 						if err != nil {
-							fmt.Println("error when try to get application metrics :", err.Error())
-							panic("Error when try to get application metrics during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
+							fmt.Println("error when try to get application metrics during NotifyApplicationScalingRecommendationScheduler :", err.Error())
+							done <- true
+							return
+						}
+						if len(metrics) == 0 {
+							fmt.Println("No metrics found for application", application.Name)
+							done <- true
+							return
 						}
 
-						fmt.Println("Application metrics retrieved :", application.Name)
-						fmt.Println("Metrics :", metrics)
+						// for _, metric := range metrics {
+						// 	fmt.Println("Metrics of application", application.Name, ":", metric.String())
+						// }
 
 						var compareActualUsageToAcceptedPercentageResults []domain.CompareActualUsageToAcceptedPercentageResult
-						acceptedUsagePercentage, err := strconv.ParseInt(os.Getenv("ACCEPTED_USAGE_PERCENTAGE"), 10, 64)
-						if err != nil {
-							fmt.Println("error when try to parse ACCEPTED_USAGE_PERCENTAGE :", err.Error())
-							panic("Error when try to parse ACCEPTED_USAGE_PERCENTAGE during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
-						}
+						acceptedCPUUsageThreshold := application.ScalabilitySpecifications.CpuUsagePercentageThreshold
+						acceptedMemoryUsageThreshold := application.ScalabilitySpecifications.MemoryUsagePercentageThreshold
 						for _, metric := range metrics {
-							doesExceedCPUAcceptedPercentage, actualCPUUsage := utils.DoesUsageExceedsLimitAndHowMuchActually(metric.CPUUsage, metric.MaxCPUUsage, acceptedUsagePercentage)
-							doesExceedMemoryAcceptedPercentage, actualMemoryUsage := utils.DoesUsageExceedsLimitAndHowMuchActually(metric.MemoryUsage, metric.MaxMemoryUsage, acceptedUsagePercentage)
-							doesExceedEphemeralStorageAcceptedPercentage, actualEphemeralStorageUsage := utils.DoesUsageExceedsLimitAndHowMuchActually(metric.EphemeralStorageUsage, metric.MaxEphemeralStorage, acceptedUsagePercentage)
+							doesExceedCPUAcceptedPercentage, actualCPUUsage := utils.DoesUsageExceedsLimitAndHowMuchActually(metric.CPUUsage, metric.MaxCPUUsage, acceptedCPUUsageThreshold)
+							doesExceedMemoryAcceptedPercentage, actualMemoryUsage := utils.DoesUsageExceedsLimitAndHowMuchActually(metric.MemoryUsage, metric.MaxMemoryUsage, acceptedMemoryUsageThreshold)
+							// doesExceedEphemeralStorageAcceptedPercentage, actualEphemeralStorageUsage := utils.DoesUsageExceedsLimitAndHowMuchActually(metric.EphemeralStorageUsage, metric.MaxEphemeralStorage, acceptedUsagePercentage)
 							compareActualUsageToAcceptedPercentageResult := domain.CompareActualUsageToAcceptedPercentageResult{
 								CPUUsageResult: domain.UsageComparisonResult{
 									DoesExceedAcceptedPercentage: doesExceedCPUAcceptedPercentage,
@@ -74,10 +81,10 @@ func notifyApplicationScalingRecommendationScheduler(findManualScalingApplicatio
 									DoesExceedAcceptedPercentage: doesExceedMemoryAcceptedPercentage,
 									ActualUsage:                  actualMemoryUsage,
 								},
-								EphemeralStorageUsageResult: domain.UsageComparisonResult{
-									DoesExceedAcceptedPercentage: doesExceedEphemeralStorageAcceptedPercentage,
-									ActualUsage:                  actualEphemeralStorageUsage,
-								},
+								// EphemeralStorageUsageResult: domain.UsageComparisonResult{
+								// 	DoesExceedAcceptedPercentage: doesExceedEphemeralStorageAcceptedPercentage,
+								// 	ActualUsage:                  actualEphemeralStorageUsage,
+								// },
 								PodName: metric.PodName,
 							}
 							compareActualUsageToAcceptedPercentageResults = append(compareActualUsageToAcceptedPercentageResults, compareActualUsageToAcceptedPercentageResult)
@@ -109,8 +116,6 @@ func notifyApplicationScalingRecommendationScheduler(findManualScalingApplicatio
 								fmt.Println("Application", application.Name, "is not exceeding accepted percentages")
 							}
 						}
-
-						fmt.Println("=====================================================")
 
 						done <- true
 					}(application)

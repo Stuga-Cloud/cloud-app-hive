@@ -5,6 +5,7 @@ import (
 	"cloud-app-hive/domain/commands"
 	"encoding/json"
 	"fmt"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -42,7 +43,7 @@ func (r GORMApplicationRepository) FindApplications(findApplications commands.Fi
 
 // FindByID returns an application by its ID
 func (r GORMApplicationRepository) FindByID(id string) (*domain.Application, error) {
-	app := domain.Application{}
+	app := &domain.Application{}
 	result := r.Database.Preload("Namespace").Preload("Namespace.Memberships").Limit(1).Find(&app, domain.Application{
 		ID: id,
 	})
@@ -54,52 +55,12 @@ func (r GORMApplicationRepository) FindByID(id string) (*domain.Application, err
 		return nil, fmt.Errorf("application not found with ID %s", id)
 	}
 
-	var containerSpecificationsJSON string
-	var scalabilitySpecificationsJSON string
-	var environmentVariablesJSON string
-	var secretsJSON string
-
-	r.Database.Table("applications").Where("id = ?", id).Limit(1).Pluck("container_specifications", &containerSpecificationsJSON)
-	r.Database.Table("applications").Where("id = ?", id).Limit(1).Pluck("scalability_specifications", &scalabilitySpecificationsJSON)
-	r.Database.Table("applications").Where("id = ?", id).Limit(1).Pluck("environment_variables", &environmentVariablesJSON)
-	r.Database.Table("applications").Where("id = ?", id).Limit(1).Pluck("secrets", &secretsJSON)
-
-	var containerSpecifications *domain.ApplicationContainerSpecifications
-	var scalabilitySpecifications *domain.ApplicationScalabilitySpecifications
-	var environmentVariables *domain.ApplicationEnvironmentVariables
-	var secrets *domain.ApplicationSecrets
-
-	if containerSpecificationsJSON != "" && containerSpecificationsJSON != "null" {
-		err := json.Unmarshal([]byte(containerSpecificationsJSON), &containerSpecifications)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if scalabilitySpecificationsJSON != "" && scalabilitySpecificationsJSON != "null" {
-		err := json.Unmarshal([]byte(scalabilitySpecificationsJSON), &scalabilitySpecifications)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if environmentVariablesJSON != "" && environmentVariablesJSON != "null" {
-		err := json.Unmarshal([]byte(environmentVariablesJSON), &environmentVariables)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if secretsJSON != "" && secretsJSON != "null" {
-		err := json.Unmarshal([]byte(secretsJSON), &secrets)
-		if err != nil {
-			return nil, err
-		}
+	app, err := fillApplicationJSONFields(app, r)
+	if err != nil {
+		return nil, err
 	}
 
-	app.ContainerSpecifications = containerSpecifications
-	app.ScalabilitySpecifications = scalabilitySpecifications
-	app.EnvironmentVariables = environmentVariables
-	app.Secrets = secrets
-
-	return &app, nil
+	return app, nil
 }
 
 // FindByUserID returns an application by its user ID
@@ -218,5 +179,71 @@ func (r GORMApplicationRepository) FindManualScalingApplications() ([]domain.App
 	if result.Error != nil {
 		return nil, fmt.Errorf("error finding manual scaling applications: %w", result.Error)
 	}
+
+	applications, err := fillApplicationsJSON(applications, r)
+	if err != nil {
+		return nil, err
+	}
+
 	return applications, nil
+}
+
+func fillApplicationJSONFields(app *domain.Application, r GORMApplicationRepository) (*domain.Application, error) {
+	var containerSpecificationsJSON string
+	var scalabilitySpecificationsJSON string
+	var environmentVariablesJSON string
+	var secretsJSON string
+
+	r.Database.Table("applications").Where("id = ?", app.ID).Limit(1).Pluck("container_specifications", &containerSpecificationsJSON)
+	r.Database.Table("applications").Where("id = ?", app.ID).Limit(1).Pluck("scalability_specifications", &scalabilitySpecificationsJSON)
+	r.Database.Table("applications").Where("id = ?", app.ID).Limit(1).Pluck("environment_variables", &environmentVariablesJSON)
+	r.Database.Table("applications").Where("id = ?", app.ID).Limit(1).Pluck("secrets", &secretsJSON)
+
+	var containerSpecifications *domain.ApplicationContainerSpecifications
+	var scalabilitySpecifications *domain.ApplicationScalabilitySpecifications
+	var environmentVariables *domain.ApplicationEnvironmentVariables
+	var secrets *domain.ApplicationSecrets
+
+	if containerSpecificationsJSON != "" && containerSpecificationsJSON != "null" {
+		err := json.Unmarshal([]byte(containerSpecificationsJSON), &containerSpecifications)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if scalabilitySpecificationsJSON != "" && scalabilitySpecificationsJSON != "null" {
+		err := json.Unmarshal([]byte(scalabilitySpecificationsJSON), &scalabilitySpecifications)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if environmentVariablesJSON != "" && environmentVariablesJSON != "null" {
+		err := json.Unmarshal([]byte(environmentVariablesJSON), &environmentVariables)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if secretsJSON != "" && secretsJSON != "null" {
+		err := json.Unmarshal([]byte(secretsJSON), &secrets)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	app.ContainerSpecifications = containerSpecifications
+	app.ScalabilitySpecifications = scalabilitySpecifications
+	app.EnvironmentVariables = environmentVariables
+	app.Secrets = secrets
+
+	return app, nil
+}
+
+func fillApplicationsJSON(apps []domain.Application, r GORMApplicationRepository) ([]domain.Application, error) {
+	for i, app := range apps {
+		app, err := fillApplicationJSONFields(&app, r)
+		if err != nil {
+			return nil, err
+		}
+		apps[i] = *app
+	}
+	return apps, nil
 }

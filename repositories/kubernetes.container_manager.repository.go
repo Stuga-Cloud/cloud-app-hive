@@ -94,7 +94,6 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationMetri
 				currentApplicationMetrics.EphemeralStorageUsage = container.Usage.StorageEphemeral().String()
 				currentApplicationMetrics.PodsUsage = container.Usage.Pods().String()
 
-				// Get deployment limits
 				// Get resource limits from the Deployment object
 				for _, containerSpec := range deployment.Spec.Template.Spec.Containers {
 					if containerSpec.Name == container.Name {
