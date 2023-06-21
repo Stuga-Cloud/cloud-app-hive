@@ -7,6 +7,8 @@ import (
 	"cloud-app-hive/domain/commands"
 	"cloud-app-hive/utils"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"sort"
+
 	//"cloud-app-hive/utils"
 	"context"
 	"fmt"
@@ -778,7 +780,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 			Type:            "Service",
 		}
 	}
-	//fmt.Printf("Service status : %s", service.Status.String())
+	//fmt.Printf("Service status : %s", service.ApplicationDeploymentStatus.String())
 
 	ingressName := fmt.Sprintf("%s-ingress", applicationName)
 
@@ -807,6 +809,20 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 		})
 	}
 
+	// Order the deploymentConditions slice if there are different last update times
+	isDifferentLastUpdateTimes := false
+	for i := 0; i < len(deploymentConditions)-1; i++ {
+		if deploymentConditions[i].LastUpdateTime != deploymentConditions[i+1].LastUpdateTime {
+			isDifferentLastUpdateTimes = true
+			break
+		}
+	}
+	if len(deploymentConditions) > 1 && isDifferentLastUpdateTimes {
+		sort.Slice(deploymentConditions, func(i, j int) bool {
+			return deploymentConditions[i].LastUpdateTime > deploymentConditions[j].LastUpdateTime
+		})
+	}
+
 	// REVERSE the deploymentConditions slice
 	//for i := len(deploymentConditions)/2 - 1; i >= 0; i-- {
 	//	opp := len(deploymentConditions) - 1 - i
@@ -814,7 +830,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 	//}
 
 	applicationStatus := domain.ApplicationStatus{
-		DeploymentName:      deployment.Name,
+		Name:                deployment.Name,
 		StatusInString:      deployment.Status.String(),
 		Replicas:            deployment.Status.Replicas,
 		AvailableReplicas:   deployment.Status.AvailableReplicas,
@@ -834,6 +850,18 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 			Name: ingress.Name,
 		},
 	}
+
+	computedStatus, humanizedStatus, err := applicationStatus.ComputeApplicationStatus()
+	if err != nil {
+		return nil, &customErrors.ContainerManagerApplicationInformationError{
+			Message:         fmt.Sprintf("Computing application status failed : %s", err.Error()),
+			ApplicationName: applicationName,
+			Namespace:       applicationNamespace,
+			Type:            "ComputeApplicationStatus",
+		}
+	}
+	applicationStatus.ComputedApplicationStatus = computedStatus
+	applicationStatus.HumanizedStatus = humanizedStatus
 
 	return &applicationStatus, nil
 }

@@ -183,7 +183,6 @@ func (namespaceController NamespaceController) FindNamespaceByIDController(c *gi
 		return
 	}
 
-	// TODO Fill applications status by querying it from the container manager
 	foundNamespace.Applications, err = namespaceController.fillApplicationsStatusUseCase.Execute(foundNamespace.Name, foundNamespace.Applications)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
