@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -31,7 +32,11 @@ func (r GORMApplicationRepository) FindApplications(findApplications commands.Fi
 		query = query.Where("application_type = ?", findApplications.ApplicationType)
 	}
 	if findApplications.IsAutoScaled != nil {
-		query = query.Where("scalability_specifications ->> 'is_auto_scaled' = ?", "true")
+		if *findApplications.IsAutoScaled {
+			query = query.Where("scalability_specifications ->> 'isAutoScaled' = ?", "true")
+		} else {
+			query = query.Where("scalability_specifications ->> 'isAutoScaled' = ?", "false")
+		}
 	}
 
 	result := query.Limit(int(findApplications.Limit)).Offset(int((findApplications.Page - 1) * findApplications.Limit)).Find(&applications)
@@ -106,7 +111,25 @@ func (r GORMApplicationRepository) FindByNamespaceIDAndName(namespaceID string, 
 
 // Create creates a new application
 func (r GORMApplicationRepository) Create(createApplication commands.CreateApplication) (*domain.Application, error) {
-	app := createApplication.ToDomain(uuid.New().String())
+	scalabilitySpecs := datatypes.NewJSONType(createApplication.ScalabilitySpecifications)
+	app := domain.Application{
+		ID:                      uuid.New().String(),
+		Name:                    createApplication.Name,
+		Description:             createApplication.Description,
+		Image:                   createApplication.Image,
+		UserID:                  createApplication.UserID,
+		NamespaceID:             createApplication.NamespaceID,
+		Port:                    createApplication.Port,
+		Zone:                    createApplication.Zone,
+		ApplicationType:         createApplication.ApplicationType,
+		EnvironmentVariables:    &createApplication.EnvironmentVariables,
+		Secrets:                 &createApplication.Secrets,
+		ContainerSpecifications: &createApplication.ContainerSpecifications,
+		// ScalabilitySpecifications: &createApplication.ScalabilitySpecifications,
+		// repositories/gorm.application.repository.go:272:34: cannot use scalabilitySpecifications (variable of type *domain.ApplicationScalabilitySpecifications) as *datatypes.JSONType[domain.ApplicationScalabilitySpecifications] value in assignment
+		ScalabilitySpecifications: &scalabilitySpecs,
+		AdministratorEmail:        createApplication.AdministratorEmail,
+	}
 	result := r.Database.Create(&app)
 	if result.Error != nil {
 		return nil, fmt.Errorf("error while creating application: %v", result.Error)
@@ -118,9 +141,9 @@ func (r GORMApplicationRepository) Create(createApplication commands.CreateAppli
 func (r GORMApplicationRepository) Update(applicationID string, application commands.UpdateApplication) (*domain.Application, error) {
 	app := domain.Application{}
 	// Also retrieve namespace linked to application
-	queryResult := r.Database.Preload("Namespace").Find(&app, domain.Application{
+	queryResult := r.Database.Preload("Namespace").Limit(1).Find(&app, domain.Application{
 		ID: applicationID,
-	}).Limit(1)
+	})
 	if queryResult.Error != nil {
 		return nil, queryResult.Error
 	}
@@ -134,7 +157,8 @@ func (r GORMApplicationRepository) Update(applicationID string, application comm
 	app.EnvironmentVariables = &application.EnvironmentVariables
 	app.Secrets = &application.Secrets
 	app.ContainerSpecifications = &application.ContainerSpecifications
-	app.ScalabilitySpecifications = &application.ScalabilitySpecifications
+	scalabilitySpecs := datatypes.NewJSONType(application.ScalabilitySpecifications)
+	app.ScalabilitySpecifications = &scalabilitySpecs
 	app.AdministratorEmail = application.AdministratorEmail
 
 	saveResult := r.Database.Save(&app)
@@ -147,9 +171,9 @@ func (r GORMApplicationRepository) Update(applicationID string, application comm
 // Delete deletes an application
 func (r GORMApplicationRepository) Delete(id string) (*domain.Application, error) {
 	app := domain.Application{}
-	foundResult := r.Database.Find(&app, domain.Application{
+	foundResult := r.Database.Limit(1).Find(&app, domain.Application{
 		ID: id,
-	}).Limit(1)
+	})
 	if foundResult.Error != nil {
 		return nil, fmt.Errorf("error while finding application while deleting: %w", foundResult.Error)
 	}
@@ -170,14 +194,34 @@ func (r GORMApplicationRepository) FindManualScalingApplications() ([]domain.App
 	result := r.Database.Preload(
 		"Namespace",
 	).Where(
-		"deleted_at IS NULL",
+		"JSON_EXTRACT(scalability_specifications, '$.isAutoScaled') = false",
 	).Find(&applications, domain.Application{
 		ApplicationType: domain.LoadBalanced,
-	}).Where(
-		"scalabilitySpecifications->>'isAutoScaled' = ?", "false",
-	)
+	})
 	if result.Error != nil {
 		return nil, fmt.Errorf("error finding manual scaling applications: %w", result.Error)
+	}
+
+	applications, err := fillApplicationsJSON(applications, r)
+	if err != nil {
+		return nil, err
+	}
+
+	return applications, nil
+}
+
+// FindAutoScalingApplications returns all applications that are auto scaled
+func (r GORMApplicationRepository) FindAutoScalingApplications() ([]domain.Application, error) {
+	var applications []domain.Application
+	result := r.Database.Preload(
+		"Namespace",
+	).Where(
+		"JSON_EXTRACT(scalability_specifications, '$.isAutoScaled') = true",
+	).Find(&applications, domain.Application{
+		ApplicationType: domain.LoadBalanced,
+	})
+	if result.Error != nil {
+		return nil, fmt.Errorf("error finding auto scaling applications: %w", result.Error)
 	}
 
 	applications, err := fillApplicationsJSON(applications, r)
@@ -230,7 +274,8 @@ func fillApplicationJSONFields(app *domain.Application, r GORMApplicationReposit
 	}
 
 	app.ContainerSpecifications = containerSpecifications
-	app.ScalabilitySpecifications = scalabilitySpecifications
+	scalabilitySpecs := datatypes.NewJSONType(*scalabilitySpecifications)
+	app.ScalabilitySpecifications = &scalabilitySpecs
 	app.EnvironmentVariables = environmentVariables
 	app.Secrets = secrets
 
@@ -247,3 +292,80 @@ func fillApplicationsJSON(apps []domain.Application, r GORMApplicationRepository
 	}
 	return apps, nil
 }
+
+// HorizontalScaleUp scales up an application horizontally
+func (r GORMApplicationRepository) HorizontalScaleUp(applicationID string) (*domain.Application, error) {
+	app := domain.Application{}
+	result := r.Database.Find(&app, domain.Application{
+		ID: applicationID,
+	}).Limit(1)
+	if result.Error != nil {
+		return nil, fmt.Errorf("error finding application: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return nil, fmt.Errorf("application not found with ID %s", applicationID)
+	}
+
+	newNumberOfReplicas := app.ScalabilitySpecifications.Data().Replicas + 1
+	scalabilitySpecs := datatypes.NewJSONType(domain.ApplicationScalabilitySpecifications{
+		Replicas:                       newNumberOfReplicas,
+		IsAutoScaled:                   app.ScalabilitySpecifications.Data().IsAutoScaled,
+		CpuUsagePercentageThreshold:    app.ScalabilitySpecifications.Data().CpuUsagePercentageThreshold,
+		MemoryUsagePercentageThreshold: app.ScalabilitySpecifications.Data().MemoryUsagePercentageThreshold,
+	})
+
+	scalabilitySpecsJSON, err := json.Marshal(scalabilitySpecs)
+	if err != nil {
+		return nil, fmt.Errorf("error while marshalling scalability specifications: %w", err)
+	}
+
+	result = r.Database.Model(&app).Update("scalability_specifications", string(scalabilitySpecsJSON))
+	if result.Error != nil {
+		return nil, fmt.Errorf("error while updating application: %w", result.Error)
+	}
+
+	return &app, nil
+}
+
+// HorizontalScaleDown scales down an application horizontally
+func (r GORMApplicationRepository) HorizontalScaleDown(applicationID string) (*domain.Application, error) {
+	app := domain.Application{}
+	result := r.Database.Find(&app, domain.Application{
+		ID: applicationID,
+	}).Limit(1)
+	if result.Error != nil {
+		return nil, fmt.Errorf("error finding application: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return nil, fmt.Errorf("application not found with ID %s", applicationID)
+	}
+
+	newNumberOfReplicas := app.ScalabilitySpecifications.Data().Replicas - 1
+	scalabilitySpecs := datatypes.NewJSONType(domain.ApplicationScalabilitySpecifications{
+		Replicas:                       newNumberOfReplicas,
+		IsAutoScaled:                   app.ScalabilitySpecifications.Data().IsAutoScaled,
+		CpuUsagePercentageThreshold:    app.ScalabilitySpecifications.Data().CpuUsagePercentageThreshold,
+		MemoryUsagePercentageThreshold: app.ScalabilitySpecifications.Data().MemoryUsagePercentageThreshold,
+	})
+
+	scalabilitySpecsJSON, err := json.Marshal(scalabilitySpecs)
+	if err != nil {
+		return nil, fmt.Errorf("error while marshalling scalability specifications: %w", err)
+	}
+
+	result = r.Database.Model(&app).Update("scalability_specifications", string(scalabilitySpecsJSON))
+	if result.Error != nil {
+		return nil, fmt.Errorf("error while updating application: %w", result.Error)
+	}
+
+	return &app, nil
+}
+
+// // VerticalScaleUp scales up an application vertically
+// func (r GORMApplicationRepository) VerticalScaleUp(applicationID string) (*domain.Application, error) {
+	
+// }
+
+// // VerticalScaleDown scales down an application vertically
+// func (r GORMApplicationRepository) VerticalScaleDown(applicationID string) (*domain.Application, error) {
+// }

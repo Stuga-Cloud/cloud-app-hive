@@ -1,5 +1,0 @@
-package schedulers
-
-func AutoScaleApplicationsAndNotify() {
-
-}

@@ -33,4 +33,19 @@ type ApplicationRepository interface {
 
 	// FindManualScalingApplications returns all manual scaling applications
 	FindManualScalingApplications() ([]domain.Application, error)
+
+	// FindAutoScalingApplications returns all auto scaling applications
+	FindAutoScalingApplications() ([]domain.Application, error)
+
+	// HorizontalScaleUp scales up an application horizontally
+	HorizontalScaleUp(applicationID string) (*domain.Application, error)
+
+	// HorizontalScaleDown scales down an application horizontally
+	HorizontalScaleDown(applicationID string) (*domain.Application, error)
+
+	// // VerticalScaleUp scales up an application vertically
+	// VerticalScaleUp(applicationID string) (*domain.Application, error)
+
+	// // VerticalScaleDown scales down an application vertically
+	// VerticalScaleDown(applicationID string) (*domain.Application, error)
 }

@@ -22,7 +22,10 @@ func InitSchedulers() {
 	}
 	containerManager := repositories.KubernetesContainerManagerRepository{}
 
-	retrieveManualScalingApplicationsUseCase := applications.FindManualScalingApplicationsUseCase{
+	findManualScalingApplicationsUseCase := applications.FindManualScalingApplicationsUseCase{
+		ApplicationRepository: applicationRepository,
+	}
+	findAutoScalingApplicationsUseCase := applications.FindAutoScalingApplicationsUseCase{
 		ApplicationRepository: applicationRepository,
 	}
 	getApplicationMetricsUseCase := applications.GetApplicationMetricsUseCase{
@@ -31,7 +34,22 @@ func InitSchedulers() {
 	emailService := services.NewEmailService()
 	scalabilityNotificationService := services.NewScalabilityNotificationService(*emailService)
 
-	notifyApplicationScalingRecommendationScheduler(retrieveManualScalingApplicationsUseCase, getApplicationMetricsUseCase, *scalabilityNotificationService)
+	manualScaleScheduler := NotifyApplicationScalingRecommendationScheduler{
+		findManualScalingApplicationsUseCase,
+		getApplicationMetricsUseCase,
+		*scalabilityNotificationService,
+	}
+	manualScaleScheduler.Launch()
 
-	AutoScaleApplicationsAndNotify()
+	scaleApplicationUseCase := applications.ScaleApplicationUseCase{
+		ApplicationRepository: applicationRepository,
+	}
+	autoScaleScheduler := AutoScaleApplicationsAndNotifyScheduler{
+		findAutoScalingApplicationsUseCase,
+		getApplicationMetricsUseCase,
+		*scalabilityNotificationService,
+		scaleApplicationUseCase,
+	}
+
+	autoScaleScheduler.Launch()
 }

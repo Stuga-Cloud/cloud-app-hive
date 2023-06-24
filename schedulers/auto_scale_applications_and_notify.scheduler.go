@@ -12,33 +12,34 @@ import (
 	"time"
 )
 
-type NotifyApplicationScalingRecommendationScheduler struct {
-	findManualScalingApplicationsUseCase applications.FindManualScalingApplicationsUseCase
-	getApplicationMetricsUseCase         applications.GetApplicationMetricsUseCase
-	scalabilityNotificationService       services.ScalabilityNotificationService
+type AutoScaleApplicationsAndNotifyScheduler struct {
+	findAutoScalingApplicationsUseCase applications.FindAutoScalingApplicationsUseCase
+	getApplicationMetricsUseCase       applications.GetApplicationMetricsUseCase
+	scalabilityNotificationService     services.ScalabilityNotificationService
+	scaleApplicationUseCase            applications.ScaleApplicationUseCase
 }
 
-func (scheduler NotifyApplicationScalingRecommendationScheduler) Launch() {
-	fmt.Println("Starting 'NotifyApplicationScalingRecommendationScheduler' scheduler...")
+func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
+	fmt.Println("Starting 'AutoScaleApplicationsAndNotifyScheduler' scheduler...")
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				fmt.Println("Recovered from panic during NotifyApplicationScalingRecommendationScheduler:", r)
+				fmt.Println("Recovered from panic during 'AutoScaleApplicationsAndNotifyScheduler':", r)
 			}
 		}()
-		repeatInterval := getManualScaleAppSchedulerRepeatInterval()
+		repeatInterval := getAutoScaleAppSchedulerRepeatInterval()
 		ticker := time.NewTicker(time.Duration(repeatInterval) * time.Second)
 		for {
 			select {
 			case <-ticker.C:
-				// 1. get all applications that are manual scaling
-				foundApplications, err := scheduler.findManualScalingApplicationsUseCase.Execute()
+				// 1. get all applications that are auto scaling
+				foundApplications, err := scheduler.findAutoScalingApplicationsUseCase.Execute()
 				if err != nil {
-					fmt.Println("error when try to get manual scaling applications :", err.Error())
-					panic("Error when try to get manual scaling applications during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
+					fmt.Println("error when try to get auto scaling applications :", err.Error())
+					panic("Error when try to get auto scaling applications during AutoScaleApplicationsAndNotifyScheduler : " + err.Error())
 				}
 				if len(foundApplications) == 0 {
-					fmt.Println("No manual scaling applications found")
+					fmt.Println("No auto scaling applications found")
 				}
 
 				// 2. parallelize checking each application through the container manager with goroutines
@@ -51,19 +52,19 @@ func (scheduler NotifyApplicationScalingRecommendationScheduler) Launch() {
 							Namespace: application.Namespace.Name,
 						})
 						if err != nil {
-							fmt.Println("error when try to get manual scaling application metrics during NotifyApplicationScalingRecommendationScheduler :", err.Error())
+							fmt.Println("error when try to get auto scaling application metrics during AutoScaleApplicationsAndNotifyScheduler :", err.Error())
 							done <- true
 							return
 						}
 						if len(metrics) == 0 {
-							fmt.Println("No metrics found for manual scaling application", application.Name)
+							fmt.Println("No metrics found for auto scaling application", application.Name)
 							done <- true
 							return
 						}
 
-						// for _, metric := range metrics {
-						// 	fmt.Println("Metrics of application", application.Name, ":", metric.String())
-						// }
+						for _, metric := range metrics {
+							fmt.Println("Metrics of application", application.Name, ":", metric.String())
+						}
 
 						var compareActualUsageToAcceptedPercentageResults []domain.CompareActualUsageToAcceptedPercentageResult
 						acceptedCPUUsageThreshold := application.ScalabilitySpecifications.Data().CpuUsagePercentageThreshold
@@ -92,11 +93,18 @@ func (scheduler NotifyApplicationScalingRecommendationScheduler) Launch() {
 						}
 
 						for _, compareActualUsageToAcceptedPercentageResult := range compareActualUsageToAcceptedPercentageResults {
-							// 3. if the application is using more than 80% of its resources, recommend to scale up
-							// 4. if the application is using less than 20% of its resources, recommend to scale down
-							// 5. send email notification to the application owner
+							// 4. if the application is using less than 20% of its resources, recommend to scale down TODO: later maybe
+							// 5. scale up/down the application TODO: implement this
+							// 6. send email to the application administrator to notify him about the scaling
 							if compareActualUsageToAcceptedPercentageResult.OneOfTheUsageExceedsAcceptedPercentage() {
-								success, err := scheduler.scalabilityNotificationService.SendApplicationScalabilityRecommandationMail(
+								// 3. if the application is using more than 80% of its resources, recommend to scale up TODO: implement this
+								_, err := scheduler.scaleApplicationUseCase.Execute(application.ID, commands.UpdateApplication{}, applications.HorizontalUpScaling)
+								if err != nil {
+									fmt.Println("error when try to scale application :", err.Error())
+									panic("Error when try to scale application during AutoScaleApplicationsAndNotifyScheduler : " + err.Error())
+								}
+
+								success, err := scheduler.scalabilityNotificationService.SendApplicationScaledUp(
 									application.AdministratorEmail,
 									application.Name,
 									application.Namespace.Name,
@@ -105,8 +113,8 @@ func (scheduler NotifyApplicationScalingRecommendationScheduler) Launch() {
 									application.ScalabilitySpecifications.Data(),
 								)
 								if err != nil {
-									fmt.Println("error when try to send application scalability recommandation mail :", err.Error())
-									panic("Error when try to send application scalability recommandation mail during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
+									fmt.Println("error when try to send application scalability notification mail :", err.Error())
+									panic("Error when try to send application scalability notification mail during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
 								}
 								if success {
 									fmt.Println("Application", application.Name, "has exceeded accepted percentages, email sent to", application.AdministratorEmail)
@@ -129,18 +137,18 @@ func (scheduler NotifyApplicationScalingRecommendationScheduler) Launch() {
 	}()
 }
 
-func getManualScaleAppSchedulerRepeatInterval() int {
+func getAutoScaleAppSchedulerRepeatInterval() int {
 	const defaultRepeatInterval = 1
 	var repeatInterval int
-	SchedulerRecommendApplicationScalingInSeconds := os.Getenv("SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS")
-	if SchedulerRecommendApplicationScalingInSeconds == "" {
+	schedulerScaleApplicationAndNotifyInSeconds := os.Getenv("SCHEDULER_SCALE_APPLICATION_AND_NOTIFY_IN_SECONDS")
+	if schedulerScaleApplicationAndNotifyInSeconds == "" {
 		fmt.Println("SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS is not set, using default value")
 		repeatInterval = defaultRepeatInterval
 	}
-	repeatInterval, err := strconv.Atoi(SchedulerRecommendApplicationScalingInSeconds)
+	repeatInterval, err := strconv.Atoi(schedulerScaleApplicationAndNotifyInSeconds)
 	if err != nil {
-		fmt.Println("Error when convert SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS to int")
-		panic(fmt.Sprintf("Error when convert SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS to int during NotifyApplicationScalingRecommendationScheduler : %s", err.Error()))
+		fmt.Println("Error when convert SCHEDULER_SCALE_APPLICATION_AND_NOTIFY_IN_SECONDS to int")
+		panic(fmt.Sprintf("Error when convert SCHEDULER_SCALE_APPLICATION_AND_NOTIFY_IN_SECONDS to int during AutoScaleApplicationsAndNotifyScheduler : %s", err.Error()))
 	}
 	return repeatInterval
 }

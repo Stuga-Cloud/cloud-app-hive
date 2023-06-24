@@ -148,7 +148,7 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 		EnvironmentVariables:      *application.EnvironmentVariables,
 		Secrets:                   *application.Secrets,
 		ContainerSpecifications:   *application.ContainerSpecifications,
-		ScalabilitySpecifications: *application.ScalabilitySpecifications,
+		ScalabilitySpecifications: application.ScalabilitySpecifications.Data(),
 	}
 	err = deployApplicationUseCase.Execute(applyApplication)
 	if err != nil {
@@ -159,7 +159,7 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 
 	c.JSON(http.StatusOK, responses.CreateApplicationResponse{
 		Message:     fmt.Sprintf("App %s deployed", application.Name),
-		Application: responses.ApplicationDomainToResponse(application),
+		Application: *application,
 	})
 }
 
@@ -311,7 +311,7 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 		EnvironmentVariables:      *application.EnvironmentVariables,
 		Secrets:                   *application.Secrets,
 		ContainerSpecifications:   *application.ContainerSpecifications,
-		ScalabilitySpecifications: *application.ScalabilitySpecifications,
+		ScalabilitySpecifications: application.ScalabilitySpecifications.Data(),
 	}
 	err = applicationController.deployApplicationUseCase.Execute(applyApplication)
 	if err != nil {
