@@ -3,6 +3,7 @@ package requests
 import (
 	"cloud-app-hive/controllers/validators"
 	"cloud-app-hive/domain"
+
 	"github.com/go-playground/validator"
 )
 
@@ -10,6 +11,7 @@ import (
 type UpdateApplicationRequest struct {
 	Description               string                                      `json:"description"`
 	Image                     string                                      `json:"image" binding:"required"`
+	Registry                  domain.ImageRegistry                        `json:"registry" binding:"required,oneof=dockerhub pcr"`
 	Port                      uint32                                      `json:"port" binding:"required,min=1,max=65535"`
 	ApplicationType           domain.ApplicationType                      `json:"applicationType" binding:"oneof=SINGLE_INSTANCE LOAD_BALANCED"`
 	EnvironmentVariables      domain.ApplicationEnvironmentVariables      `json:"environmentVariables"`

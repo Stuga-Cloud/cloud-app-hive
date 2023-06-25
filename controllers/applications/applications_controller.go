@@ -115,6 +115,7 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 		Name:                      createApplicationRequest.Name,
 		Description:               createApplicationRequest.Description,
 		Image:                     createApplicationRequest.Image,
+		Registry:                  createApplicationRequest.Registry,
 		NamespaceID:               createApplicationRequest.NamespaceID,
 		UserID:                    createApplicationRequest.UserID,
 		Port:                      createApplicationRequest.Port,
@@ -142,6 +143,7 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 	applyApplication := commands.ApplyApplication{
 		Name:                      application.Name,
 		Image:                     application.Image,
+		Registry:                  application.Registry,
 		Namespace:                 namespace.Name,
 		Port:                      application.Port,
 		ApplicationType:           application.ApplicationType,
@@ -284,6 +286,7 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 		UserID:                    userID,
 		Description:               updateApplicationRequest.Description,
 		Image:                     updateApplicationRequest.Image,
+		Registry:                  updateApplicationRequest.Registry,
 		Port:                      updateApplicationRequest.Port,
 		ApplicationType:           updateApplicationRequest.ApplicationType,
 		EnvironmentVariables:      updateApplicationRequest.EnvironmentVariables,
@@ -305,6 +308,7 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 	applyApplication := commands.ApplyApplication{
 		Name:                      application.Name,
 		Image:                     application.Image,
+		Registry:                  application.Registry,
 		Namespace:                 namespace.Name,
 		Port:                      application.Port,
 		ApplicationType:           application.ApplicationType,
@@ -523,7 +527,6 @@ func (applicationController ApplicationController) GetStatusByApplicationNameAnd
 		return
 	}
 
-	// TODO -> Get status from kubernetes
 	getApplicationStatus := commands.GetApplicationStatus{
 		Name:      applicationName,
 		Namespace: applicationNamespace,

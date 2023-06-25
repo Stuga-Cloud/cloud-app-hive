@@ -7,12 +7,20 @@ import (
 	"gorm.io/gorm"
 )
 
+type ImageRegistry string
+
+const (
+	DockerHubRegistry ImageRegistry = "dockerhub"
+	PrivateRegistry   ImageRegistry = "pcr"
+)
+
 // Application is a struct that represents a user's application
 type Application struct {
 	ID                        string                                                    `json:"id" gorm:"primaryKey"`
 	Name                      string                                                    `json:"name" gorm:"size:100;not null"`
 	Description               string                                                    `json:"description" gorm:"size:1000;not null"`
 	Image                     string                                                    `json:"image" gorm:"size:1000;not null"`
+	Registry                  ImageRegistry                                             `json:"registry" gorm:"type:enum('dockerhub', 'pcr');default:'dockerhub'"`
 	UserID                    string                                                    `json:"userId" gorm:"size:100;not null"`
 	NamespaceID               string                                                    `json:"namespaceId" gorm:"size:100;not null"`
 	Namespace                 Namespace                                                 `json:"namespace" gorm:"foreignKey:NamespaceID;references:ID;not null"`

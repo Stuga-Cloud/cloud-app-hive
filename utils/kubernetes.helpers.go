@@ -114,6 +114,7 @@ func ConvertKubernetesResourceValueAndUnitToNumeric(value string) float64 {
 
 	// Check if the unit exists in the map
 	if k8sUnit, ok := realLifeUnitToK8sUnit[unit]; ok {
+		println("Got value and unit: ", value, unit)
 		return k8sUnit * ConvertStringToFloat64(value)
 	}
 

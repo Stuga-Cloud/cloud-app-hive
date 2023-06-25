@@ -117,6 +117,7 @@ func (r GORMApplicationRepository) Create(createApplication commands.CreateAppli
 		Name:                    createApplication.Name,
 		Description:             createApplication.Description,
 		Image:                   createApplication.Image,
+		Registry:                createApplication.Registry,
 		UserID:                  createApplication.UserID,
 		NamespaceID:             createApplication.NamespaceID,
 		Port:                    createApplication.Port,
@@ -152,6 +153,7 @@ func (r GORMApplicationRepository) Update(applicationID string, application comm
 	}
 	app.Description = application.Description
 	app.Image = application.Image
+	app.Registry = application.Registry
 	app.Port = application.Port
 	app.ApplicationType = application.ApplicationType
 	app.EnvironmentVariables = &application.EnvironmentVariables
@@ -363,7 +365,7 @@ func (r GORMApplicationRepository) HorizontalScaleDown(applicationID string) (*d
 
 // // VerticalScaleUp scales up an application vertically
 // func (r GORMApplicationRepository) VerticalScaleUp(applicationID string) (*domain.Application, error) {
-	
+
 // }
 
 // // VerticalScaleDown scales down an application vertically

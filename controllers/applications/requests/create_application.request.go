@@ -3,6 +3,7 @@ package requests
 import (
 	"cloud-app-hive/controllers/validators"
 	"cloud-app-hive/domain"
+
 	"github.com/go-playground/validator"
 )
 
@@ -12,6 +13,7 @@ type CreateApplicationRequest struct {
 	Name                      string                                      `json:"name" binding:"required,min=3,max=50" validate:"IsACustomStringForSubdomainValidation"`
 	Description               string                                      `json:"description" binding:"omitempty,min=3,max=50"`
 	Image                     string                                      `json:"image" binding:"required"`
+	Registry                  domain.ImageRegistry                        `json:"registry" binding:"required,oneof=dockerhub pcr"`
 	NamespaceID               string                                      `json:"namespaceId" binding:"required"`
 	UserID                    string                                      `json:"userId" binding:"required"`
 	Port                      uint32                                      `json:"port" binding:"required,min=1,max=65535"`

@@ -168,7 +168,7 @@ func (s *ScalabilityNotificationService) GetAutoScalingBody(
 	body += "Best regards,\n"
 	body += "The Stuga Cloud Team"
 
-	htmlBody := "<p>The application '" + applicationName + "' in namespace '" + namespace + "' is scaled up.</p><br>"
+	htmlBody := "<p>The application '" + applicationName + "' in namespace '" + namespace + "' has scaled up.</p><br>"
 	htmlBody += "<p>The configured thresholds are " + fmt.Sprintf("%.2f", cpuConfiguredThreshold) + "% of CPU resources and " + fmt.Sprintf("%.2f", memoryConfiguredThreshold) + "% of memory resources.</p>"
 	htmlBody += "<p>And the application is currently using " + fmt.Sprintf("%.2f", cpuActualUsage) + "% of its CPU resources and " + fmt.Sprintf("%.2f", memoryActualUsage) + "% of its memory resources.</p>"
 
@@ -176,7 +176,7 @@ func (s *ScalabilityNotificationService) GetAutoScalingBody(
 		cpuLimit + " of CPU resources and " +
 		memoryLimit + " of memory resources"
 
-	htmlBody += "\n\n"
+	htmlBody += "<br><br>"
 	htmlBody += "Best regards,<br>"
 	htmlBody += "The Stuga Cloud Team"
 

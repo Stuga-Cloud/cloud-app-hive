@@ -6,6 +6,7 @@ import "cloud-app-hive/domain"
 type ApplyApplication struct {
 	Name                      string
 	Image                     string
+	Registry                  domain.ImageRegistry
 	Namespace                 string
 	Port                      uint32
 	ApplicationType           domain.ApplicationType

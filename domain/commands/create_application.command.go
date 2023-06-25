@@ -10,6 +10,7 @@ type CreateApplication struct {
 	Name                      string
 	Description               string
 	Image                     string
+	Registry                  domain.ImageRegistry
 	NamespaceID               string
 	Port                      uint32
 	Zone                      string

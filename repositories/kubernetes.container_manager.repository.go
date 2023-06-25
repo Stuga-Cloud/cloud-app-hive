@@ -6,13 +6,17 @@ import (
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/commands"
 	"cloud-app-hive/utils"
-	"k8s.io/apimachinery/pkg/api/resource"
+	"encoding/base64"
+	"encoding/json"
 	"sort"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	//"cloud-app-hive/utils"
 	"context"
 	"fmt"
 	"io"
+
 	//"k8s.io/apimachinery/pkg/api/resource"
 	"os"
 	"strings"
@@ -160,6 +164,16 @@ func (containerManager KubernetesContainerManagerRepository) ApplyApplication(
 		}
 	}
 
+	// Apply a secret for using private registry (registry-cloud.machavoine.fr)
+	if usesPrivateRegistry(applyApplication.Registry) {
+		err = containerManager.applyPrivateRegistrySecret(clientset, applyApplication)
+		if err != nil {
+			return &customErrors.ContainerManagerError{
+				Message: "While applying private registry secret - " + err.Error(),
+			}
+		}
+	}
+
 	err = containerManager.applyDeployment(clientset, applyApplication, secretOriginalKeyWithConvertedK8sKey)
 	if err != nil {
 		return &customErrors.ContainerManagerError{
@@ -206,6 +220,90 @@ func (containerManager KubernetesContainerManagerRepository) applyNamespace(
 	}
 
 	fmt.Println("Namespace created successfully : ", namespace)
+	return nil
+}
+
+// DockerRegistrySecretData represents the data to store in the Docker registry Secret
+type DockerRegistrySecretData struct {
+	Auths map[string]struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Auth     string `json:"auth"`
+	} `json:"auths"`
+}
+
+func usesPrivateRegistry(registry domain.ImageRegistry) bool {
+	return registry == domain.PrivateRegistry
+}
+
+func (containerManager KubernetesContainerManagerRepository) applyPrivateRegistrySecret(
+	clientset *kubernetes.Clientset, deployApplication commands.ApplyApplication,
+) error {
+	privateRegistryUrl := os.Getenv("PRIVATE_HARBOR_REGISTRY_URL")
+	privateRegistryUsername := os.Getenv("PRIVATE_HARBOR_REGISTRY_USERNAME")
+	privateRegistryPassword := os.Getenv("PRIVATE_HARBOR_REGISTRY_PASSWORD")
+	fmt.Println("Private registry url : " + privateRegistryUrl)
+	fmt.Println("Private registry username : " + privateRegistryUsername)
+	fmt.Println("Private registry password : " + privateRegistryPassword)
+
+	// Create the data for the Secret
+	secretData := DockerRegistrySecretData{
+		Auths: map[string]struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+			Auth     string `json:"auth"`
+		}{
+			privateRegistryUrl: {
+				Username: privateRegistryUsername,
+				Password: privateRegistryPassword,
+				Auth:     base64.StdEncoding.EncodeToString([]byte(privateRegistryUsername + ":" + privateRegistryPassword)),
+			},
+		},
+	}
+
+	// Convert the Secret data to JSON
+	secretDataJSON, err := json.Marshal(secretData)
+	if err != nil {
+		return err
+	}
+
+	applicationNamespace := deployApplication.Namespace
+	secretName := "private-registry-secret"
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: applicationNamespace,
+		},
+		Type: v1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{
+			".dockerconfigjson": secretDataJSON,
+		},
+	}
+
+	_, err = clientset.CoreV1().Secrets(applicationNamespace).Get(context.Background(), secretName, metav1.GetOptions{})
+	if err == nil {
+		_, err = clientset.CoreV1().Secrets(applicationNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
+		if err != nil {
+			return &customErrors.ContainerManagerApplicationDeploymentError{
+				Message:         fmt.Sprintf("Error while updating private registry secret : %s", err.Error()),
+				ApplicationName: deployApplication.Name,
+				Namespace:       deployApplication.Namespace,
+				Image:           deployApplication.Image,
+			}
+		}
+	} else {
+		_, err = clientset.CoreV1().Secrets(applicationNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
+		if err != nil {
+			return &customErrors.ContainerManagerApplicationDeploymentError{
+				Message:         fmt.Sprintf("Error while creating private registry secret : %s", err.Error()),
+				ApplicationName: deployApplication.Name,
+				Namespace:       deployApplication.Namespace,
+				Image:           deployApplication.Image,
+			}
+		}
+	}
+
+	fmt.Println("Private registry secret created successfully : " + secretName + " in namespace " + applicationNamespace)
 	return nil
 }
 
@@ -292,6 +390,15 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 				},
 			},
 		},
+	}
+
+	if usesPrivateRegistry(deployApplication.Registry) {
+		fmt.Println("Using private registry in deployment")
+		deployment.Spec.Template.Spec.ImagePullSecrets = []v1.LocalObjectReference{
+			{
+				Name: "private-registry-secret",
+			},
+		}
 	}
 
 	_, err := clientset.AppsV1().Deployments(applicationNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
@@ -423,7 +530,7 @@ func (containerManager KubernetesContainerManagerRepository) applyService(client
 	if deployApplication.ApplicationType == domain.SingleInstance {
 		serviceType = v1.ServiceTypeClusterIP
 	} else if deployApplication.ApplicationType == domain.LoadBalanced {
-		serviceType = v1.ServiceTypeLoadBalancer // TODO - not working with type load balancer
+		serviceType = v1.ServiceTypeLoadBalancer
 	} else {
 		return &customErrors.ContainerManagerApplicationDeploymentError{
 			Message:         fmt.Sprintf("Error while creating service : %s", "Application type not supported"),
@@ -576,7 +683,8 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationLogs(
 
 	logs := make([]domain.ApplicationLogs, 0)
 	podLogOptions := v1.PodLogOptions{
-		// TODO : Add options in body
+		// Follow: true,
+		// Timestamps: true,
 	}
 
 	for _, pod := range podList.Items {
@@ -621,7 +729,7 @@ func (containerManager KubernetesContainerManagerRepository) UnapplyApplication(
 	}
 
 	if err = containerManager.deleteIngress(clientset, unapplyApplication); err != nil {
-		// TODO Redeploy application if ingress deletion failed ?
+		// TODO: Redeploy application if ingress deletion failed ?
 		return &customErrors.ContainerManagerError{
 			Message: fmt.Sprintf("Deleting ingress while unapplying application failed : %s", err.Error()),
 		}

@@ -93,17 +93,15 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 						}
 
 						for _, compareActualUsageToAcceptedPercentageResult := range compareActualUsageToAcceptedPercentageResults {
-							// 4. if the application is using less than 20% of its resources, recommend to scale down TODO: later maybe
-							// 5. scale up/down the application TODO: implement this
-							// 6. send email to the application administrator to notify him about the scaling
 							if compareActualUsageToAcceptedPercentageResult.OneOfTheUsageExceedsAcceptedPercentage() {
-								// 3. if the application is using more than 80% of its resources, recommend to scale up TODO: implement this
+								// 5. scale up/down the application if one of the usage exceeds the accepted percentage
 								_, err := scheduler.scaleApplicationUseCase.Execute(application.ID, commands.UpdateApplication{}, applications.HorizontalUpScaling)
 								if err != nil {
 									fmt.Println("error when try to scale application :", err.Error())
 									panic("Error when try to scale application during AutoScaleApplicationsAndNotifyScheduler : " + err.Error())
 								}
 
+								// 6. send email to the application administrator to notify him about the scaling
 								success, err := scheduler.scalabilityNotificationService.SendApplicationScaledUp(
 									application.AdministratorEmail,
 									application.Name,

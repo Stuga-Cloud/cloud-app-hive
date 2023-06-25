@@ -7,6 +7,7 @@ type UpdateApplication struct {
 	UserID                    string
 	Description               string
 	Image                     string
+	Registry                  domain.ImageRegistry
 	Port                      uint32
 	ApplicationType           domain.ApplicationType
 	EnvironmentVariables      domain.ApplicationEnvironmentVariables

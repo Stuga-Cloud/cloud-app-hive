@@ -39,9 +39,5 @@ func InitApplicationsRoutes(
 	router.GET("/applications/:id/metrics", applicationController.GetMetricsByApplicationNameAndNamespaceController)
 	router.GET("/applications/:id/logs", applicationController.GetLogsByApplicationNameAndNamespaceController)
 	router.GET("/applications/:id/status", applicationController.GetStatusByApplicationNameAndNamespaceController)
-	// router.GET("/applications", applicationControllers.GetApplicationController) TODO when database is implemented
-	// router.GET("/applications/:namespace/:name", applicationControllers.GetApplicationByNameAndNamespaceController) TODO
-	// router.GET("/applications/:userId", applicationControllers.GetApplicationByUserIdController) TODO
-	// router.PUT("/applications/:namespace/:name", applicationControllers.UpdateApplicationByNameAndNamespaceController) TODO
 	router.DELETE("/applications/:id", applicationController.DeleteApplicationByIDController)
 }
