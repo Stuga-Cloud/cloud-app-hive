@@ -10,11 +10,13 @@ import (
 
 // MockNamespaceRepository is a mock implementation of the NamespaceRepository interface above
 type MockNamespaceRepository struct {
-	FindByIDFunc   func(id string) (*domain.Namespace, error)
-	FindByNameFunc func(name string) (*domain.Namespace, error)
-	FindFunc       func(findNamespaces commands.FindNamespaces) ([]domain.Namespace, error)
-	CreateFunc     func(createNamespace commands.CreateNamespace) (*domain.Namespace, error)
-	DeleteFunc     func(id string) (*domain.Namespace, error)
+	FindByIDFunc     func(id string) (*domain.Namespace, error)
+	ExistsByNameFunc func(name string) (bool, error)
+	FindByNameFunc   func(name string) (*domain.Namespace, error)
+	FindFunc         func(findNamespaces commands.FindNamespaces) ([]domain.Namespace, error)
+	CreateFunc       func(createNamespace commands.CreateNamespace) (*domain.Namespace, error)
+	DeleteFunc       func(id string, userId string) (*domain.Namespace, error)
+	UpdateFunc       func(updateNamespace commands.UpdateNamespace) (*domain.Namespace, error)
 }
 
 func (m *MockNamespaceRepository) FindByID(id string) (*domain.Namespace, error) {
@@ -25,6 +27,10 @@ func (m *MockNamespaceRepository) FindByName(name string) (*domain.Namespace, er
 	return m.FindByNameFunc(name)
 }
 
+func (m *MockNamespaceRepository) ExistsByName(name string) (bool, error) {
+	return m.ExistsByNameFunc(name)
+}
+
 func (m *MockNamespaceRepository) Find(findNamespaces commands.FindNamespaces) ([]domain.Namespace, error) {
 	return m.FindFunc(findNamespaces)
 }
@@ -33,8 +39,12 @@ func (m *MockNamespaceRepository) Create(createNamespace commands.CreateNamespac
 	return m.CreateFunc(createNamespace)
 }
 
-func (m *MockNamespaceRepository) Delete(id string) (*domain.Namespace, error) {
-	return m.DeleteFunc(id)
+func (m *MockNamespaceRepository) Delete(id string, userId string) (*domain.Namespace, error) {
+	return m.DeleteFunc(id, userId)
+}
+
+func (m *MockNamespaceRepository) Update(updateNamespace commands.UpdateNamespace) (*domain.Namespace, error) {
+	return m.UpdateFunc(updateNamespace)
 }
 
 func TestExecute_CreateNamespace_Success(t *testing.T) {
@@ -45,6 +55,9 @@ func TestExecute_CreateNamespace_Success(t *testing.T) {
 		},
 		CreateFunc: func(createNamespace commands.CreateNamespace) (*domain.Namespace, error) {
 			return &domain.Namespace{ID: "123", Name: createNamespace.Name}, nil
+		},
+		ExistsByNameFunc: func(name string) (bool, error) {
+			return false, nil
 		},
 	}
 
@@ -76,6 +89,9 @@ func TestExecute_CreateNamespace_AlreadyExists(t *testing.T) {
 		FindByNameFunc: func(name string) (*domain.Namespace, error) {
 			return &domain.Namespace{ID: "123", Name: name}, nil // Namespace already exists
 		},
+		ExistsByNameFunc: func(name string) (bool, error) {
+			return true, nil
+		},
 	}
 
 	// Create the use case instance with the mock repository
@@ -96,7 +112,7 @@ func TestExecute_CreateNamespace_AlreadyExists(t *testing.T) {
 	if createdNamespace != nil {
 		t.Error("Expected createdNamespace to be nil, but got non-nil")
 	}
-	expectedErrorMessage := fmt.Sprintf("namespace %s already exists", createNamespace.Name)
+	expectedErrorMessage := fmt.Sprintf("namespace with name %s already exists", createNamespace.Name)
 	if err.Error() != expectedErrorMessage {
 		t.Errorf("Expected error message '%s', but got '%s'", expectedErrorMessage, err.Error())
 	}

@@ -7,7 +7,7 @@ type NamespaceWithNameAlreadyExistError struct {
 }
 
 func (e *NamespaceWithNameAlreadyExistError) Error() string {
-	return fmt.Sprintf("namespace with name %s already exist", e.NamespaceName)
+	return fmt.Sprintf("namespace with name %s already exists", e.NamespaceName)
 }
 
 func NewNamespaceWithNameAlreadyExistError(
