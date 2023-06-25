@@ -120,12 +120,19 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationMetri
 
 // connectToKubernetesAPI Connect to Kubernetes API and return the clientset
 func (containerManager KubernetesContainerManagerRepository) connectToKubernetesAPI() (*kubernetes.Clientset, error) {
-	kubeconfig := os.Getenv("KUBECONFIG_PATH")
-	if kubeconfig == "" {
-		return nil, &customErrors.ContainerManagerConnectionError{Message: "KUBECONFIG_PATH environment variable is not set"}
+	kubeconfigContent := os.Getenv("KUBECONFIG_CONTENT")
+	if kubeconfigContent == "" {
+		return nil, &customErrors.ContainerManagerConnectionError{Message: "KUBECONFIG_CONTENT environment variable is not set"}
 	}
 
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	decodedContent, err := base64.StdEncoding.DecodeString(kubeconfigContent)
+	if err != nil {
+		return nil, &customErrors.ContainerManagerConnectionError{
+			Message: fmt.Sprintf("Error while decoding KUBECONFIG_CONTENT : %s", err.Error()),
+		}
+	}
+
+	config, err := clientcmd.RESTConfigFromKubeConfig(decodedContent)
 	if err != nil {
 		return nil, &customErrors.ContainerManagerConnectionError{
 			Message: fmt.Sprintf("Error while connecting to Kubernetes API : %s", err.Error()),
