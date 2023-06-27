@@ -35,15 +35,28 @@ type KubernetesContainerManagerRepository struct{}
 
 // connectToKubernetesAPIMetrics Connect to Kubernetes API and return the clientset
 func (containerManager KubernetesContainerManagerRepository) connectToKubernetesAPIMetrics() (*versioned.Clientset, error) {
-	kubeconfig := os.Getenv("KUBECONFIG_PATH")
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	kubeconfigContent := os.Getenv("KUBECONFIG_CONTENT")
+	if kubeconfigContent == "" {
+		return nil, &customErrors.ContainerManagerConnectionError{Message: "KUBECONFIG_CONTENT environment variable is not set"}
+	}
+
+	decodedContent, err := base64.StdEncoding.DecodeString(kubeconfigContent)
 	if err != nil {
-		return nil, &customErrors.ContainerManagerConnectionError{Message: fmt.Sprintf("Error while connecting to Kubernetes API : %s", err.Error())}
+		return nil, &customErrors.ContainerManagerConnectionError{
+			Message: fmt.Sprintf("Error while decoding KUBECONFIG_CONTENT : %s", err.Error()),
+		}
+	}
+
+	config, err := clientcmd.RESTConfigFromKubeConfig(decodedContent)
+	if err != nil {
+		return nil, &customErrors.ContainerManagerConnectionError{
+			Message: fmt.Sprintf("Error while connecting to Kubernetes Metrics API : %s", err.Error()),
+		}
 	}
 
 	clientSet, err := versioned.NewForConfig(config)
 	if err != nil {
-		return nil, &customErrors.ContainerManagerConnectionError{Message: fmt.Sprintf("Error while connecting to Kubernetes API : %s", err.Error())}
+		return nil, &customErrors.ContainerManagerConnectionError{Message: fmt.Sprintf("Error while connecting to Kubernetes Metrics API : %s", err.Error())}
 	}
 
 	return clientSet, nil
@@ -249,9 +262,6 @@ func (containerManager KubernetesContainerManagerRepository) applyPrivateRegistr
 	privateRegistryUrl := os.Getenv("PRIVATE_HARBOR_REGISTRY_URL")
 	privateRegistryUsername := os.Getenv("PRIVATE_HARBOR_REGISTRY_USERNAME")
 	privateRegistryPassword := os.Getenv("PRIVATE_HARBOR_REGISTRY_PASSWORD")
-	fmt.Println("Private registry url : " + privateRegistryUrl)
-	fmt.Println("Private registry username : " + privateRegistryUsername)
-	fmt.Println("Private registry password : " + privateRegistryPassword)
 
 	// Create the data for the Secret
 	secretData := DockerRegistrySecretData{
@@ -978,4 +988,73 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 	applicationStatus.HumanizedStatus = humanizedStatus
 
 	return &applicationStatus, nil
+}
+
+// GetKubeClusterState returns the state of the cluster, CPU usage, memory usage, pods, services, deployments, namespaces
+func (containerManager KubernetesContainerManagerRepository) GetClusterMetrics() (*domain.ClusterMetrics, error) {
+	metricsClientset, err := containerManager.connectToKubernetesAPIMetrics()
+	if err != nil {
+		return nil, err
+	}
+
+	nodeMetricsList, err := metricsClientset.MetricsV1beta1().NodeMetricses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var nodeMetrics []domain.NodeMetrics
+	for _, nodeMetric := range nodeMetricsList.Items {
+		nodeMetrics = append(nodeMetrics, domain.NodeMetrics{
+			Name:                  nodeMetric.Name,
+			CPUUsage:              nodeMetric.Usage.Cpu().String(),
+			MemoryUsage:           nodeMetric.Usage.Memory().String(),
+			StorageUsage:          nodeMetric.Usage.Storage().String(),
+			EphemeralStorageUsage: nodeMetric.Usage.StorageEphemeral().String(),
+			Pods:                  nodeMetric.Usage.Pods().String(),
+
+			ReadableCPUUsage: utils.ConvertK8sResourceToReadableHumanValueAndUnit(nodeMetric.Usage.Cpu().String()),
+			ReadableMemoryUsage: utils.ConvertK8sResourceToReadableHumanValueAndUnit(
+				nodeMetric.Usage.Memory().String(),
+			),
+			ReadableStorageUsage: utils.ConvertK8sResourceToReadableHumanValueAndUnit(
+				nodeMetric.Usage.Storage().String(),
+			),
+			ReadableEphemeralStorageUsage: utils.ConvertK8sResourceToReadableHumanValueAndUnit(
+				nodeMetric.Usage.StorageEphemeral().String(),
+			),
+		})
+	}
+
+	// Also get maximum CPU and memory capacity of the cluster
+	clientset, err := containerManager.connectToKubernetesAPI()
+	if err != nil {
+		return nil, err
+	}
+
+	nodeList, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var nodeCapacities []domain.NodeCapacity
+	for _, node := range nodeList.Items {
+		nodeCapacities = append(nodeCapacities, domain.NodeCapacity{
+			Name:                     node.Name,
+			CPULimit:                 node.Status.Capacity.Cpu().String(),
+			MemoryLimit:              node.Status.Capacity.Memory().String(),
+			StorageLimit:             node.Status.Capacity.Storage().String(),
+			EphemeralStorageLimit:    node.Status.Capacity.StorageEphemeral().String(),
+			ReadableCPU:              utils.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.Cpu().String()),
+			ReadableMemory:           utils.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.Memory().String()),
+			ReadableStorage:          utils.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.Storage().String()),
+			ReadableEphemeralStorage: utils.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.StorageEphemeral().String()),
+		})
+	}
+
+	clusterMetrics := domain.ClusterMetrics{
+		NodesMetrics:    nodeMetrics,
+		NodesCapacities: nodeCapacities,
+	}
+
+	return &clusterMetrics, nil
 }

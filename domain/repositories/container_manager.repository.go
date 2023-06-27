@@ -19,4 +19,6 @@ type ContainerManagerRepository interface {
 	UnapplyApplication(applyApplication commands.UnapplyApplication) error
 	// DeleteNamespace deletes a namespace on a container manager
 	DeleteNamespace(namespace string) error
+	// GetKubeClusterState returns the state of the kubernetes cluster
+	GetClusterMetrics() (*domain.ClusterMetrics, error)
 }

@@ -13,7 +13,6 @@ services:
     environment:
       - PORT=${PORT}
       - API_KEY=${API_KEY}
-      - REMOTE_SERVER_URL=${REMOTE_SERVER_URL}
       - DOMAIN_NAME=${DOMAIN_NAME}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}

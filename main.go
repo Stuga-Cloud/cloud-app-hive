@@ -3,6 +3,7 @@ package main
 import (
 	"cloud-app-hive/repositories"
 	"cloud-app-hive/schedulers"
+	"cloud-app-hive/use_cases"
 	"cloud-app-hive/use_cases/applications"
 	"cloud-app-hive/use_cases/namespaces"
 	"os"
@@ -132,6 +133,11 @@ func initDependencies(router *gin.Engine) {
 		NamespaceRepository:           namespaceRepository,
 	}
 
+	// Cluster dependencies
+	getClusterMetricsUseCase := use_cases.GetClusterMetricsUseCase{
+		ContainerManagerRepository: containerManagerRepository,
+	}
+
 	controllers.InitRoutes(
 		router,
 		createNamespaceUseCase,
@@ -152,6 +158,7 @@ func initDependencies(router *gin.Engine) {
 		removeNamespaceMembershipUseCase,
 		deleteNamespaceByIDUseCase,
 		updateNamespaceByIDUseCase,
+		getClusterMetricsUseCase,
 	)
 
 	schedulers.InitSchedulers()

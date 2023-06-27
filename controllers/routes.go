@@ -1,11 +1,13 @@
 package controllers
 
 import (
+	"cloud-app-hive/use_cases"
 	applicationsUseCases "cloud-app-hive/use_cases/applications"
 	namespaceUseCases "cloud-app-hive/use_cases/namespaces"
 	"net/http"
 
 	"cloud-app-hive/controllers/applications"
+	"cloud-app-hive/controllers/cluster"
 	"cloud-app-hive/controllers/namespaces"
 
 	"github.com/gin-gonic/gin"
@@ -31,6 +33,7 @@ func InitRoutes(
 	removeNamespaceMembershipUseCase namespaceUseCases.RemoveNamespaceMembershipUseCase,
 	deleteNamespaceByIDUseCase namespaceUseCases.DeleteNamespaceByIDUseCase,
 	updateNamespaceByIDUseCase namespaceUseCases.UpdateNamespaceByIDUseCase,
+	getClusterMetricsUseCase use_cases.GetClusterMetricsUseCase,
 ) *gin.Engine {
 	api := router.Group("/api/v1")
 	{
@@ -59,6 +62,10 @@ func InitRoutes(
 			getApplicationMetricsUseCase,
 			getApplicationStatusUseCase,
 			fillApplicationsStatusUseCase,
+		)
+		cluster.InitClusterRoutes(
+			api,
+			getClusterMetricsUseCase,
 		)
 	}
 
