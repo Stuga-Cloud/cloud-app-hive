@@ -1,9 +1,11 @@
 package domain
 
 import (
+	"cloud-app-hive/controllers/errors"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"regexp"
 )
 
 // ApplicationEnvironmentVariable is a struct that represents an environment variable
@@ -27,4 +29,26 @@ func (applicationEnvVariables *ApplicationEnvironmentVariables) Scan(value inter
 
 func (applicationEnvVariables *ApplicationEnvironmentVariables) Value() (driver.Value, error) {
 	return json.Marshal(applicationEnvVariables)
+}
+
+const environmentVariableNameRegex = "^[a-zA-Z_][a-zA-Z0-9_]*$"
+
+func IsAValidEnvironmentVariableName(name string) bool {
+	match, err := regexp.MatchString(environmentVariableNameRegex, name)
+	if err != nil {
+		return false
+	}
+	return match
+}
+
+func (applicationEnvVariables *ApplicationEnvironmentVariables) Validate() error {
+	for _, envVariable := range *applicationEnvVariables {
+		if envVariable.Name == "" {
+			return errors.NewInvalidApplicationEnvironmentVariablesError("Name must not be empty")
+		}
+		if !IsAValidEnvironmentVariableName(envVariable.Name) {
+			return errors.NewInvalidApplicationEnvironmentVariablesError("Name must not contain special characters, it must match the following regex: " + environmentVariableNameRegex)
+		}
+	}
+	return nil
 }

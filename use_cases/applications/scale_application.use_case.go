@@ -31,7 +31,7 @@ func (scaleApplicationUseCase ScaleApplicationUseCase) Execute(applicationID str
 	}
 
 	updatedApplication := &domain.Application{}
-	if scalingType == HorizontalUpScaling {	
+	if scalingType == HorizontalUpScaling {
 		updatedApplication, err = scaleApplicationUseCase.ApplicationRepository.HorizontalScaleUp(applicationID)
 	}
 	if scalingType == HorizontalDownScaling {

@@ -43,5 +43,15 @@ func ValidateUpdateApplicationRequest(updateApplicationRequest UpdateApplication
 		return err
 	}
 
+	err = updateApplicationRequest.EnvironmentVariables.Validate()
+	if err != nil {
+		return err
+	}
+
+	err = updateApplicationRequest.Secrets.Validate()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

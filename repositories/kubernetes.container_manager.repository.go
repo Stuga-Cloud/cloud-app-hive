@@ -357,6 +357,14 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 	if deployApplication.ApplicationType == domain.SingleInstance {
 		replicas = 1
 	} else {
+		if deployApplication.ScalabilitySpecifications.Replicas > domain.MaxNumberOfReplicas {
+			return &customErrors.ContainerManagerApplicationDeploymentError{
+				Message:         fmt.Sprintf("Error while creating deployment : %s", "Replicas must be less than or equal to "+fmt.Sprintf("%d", domain.MaxNumberOfReplicas)),
+				ApplicationName: deployApplication.Name,
+				Namespace:       deployApplication.Namespace,
+				Image:           deployApplication.Image,
+			}
+		}
 		replicas = deployApplication.ScalabilitySpecifications.Replicas
 	}
 	rawCpuLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.CPULimit.Val, deployApplication.ContainerSpecifications.CPULimit.Unit)

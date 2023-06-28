@@ -309,6 +309,11 @@ func (r GORMApplicationRepository) HorizontalScaleUp(applicationID string) (*dom
 	}
 
 	newNumberOfReplicas := app.ScalabilitySpecifications.Data().Replicas + 1
+
+	if err := app.ScalabilitySpecifications.Data().Validate(); err != nil {
+		return nil, fmt.Errorf("error while validating scalability specifications when scaling up: %w", err)
+	}
+
 	scalabilitySpecs := datatypes.NewJSONType(domain.ApplicationScalabilitySpecifications{
 		Replicas:                       newNumberOfReplicas,
 		IsAutoScaled:                   app.ScalabilitySpecifications.Data().IsAutoScaled,
@@ -343,6 +348,11 @@ func (r GORMApplicationRepository) HorizontalScaleDown(applicationID string) (*d
 	}
 
 	newNumberOfReplicas := app.ScalabilitySpecifications.Data().Replicas - 1
+
+	if err := app.ScalabilitySpecifications.Data().Validate(); err != nil {
+		return nil, fmt.Errorf("error while validating scalability specifications when scaling up: %w", err)
+	}
+
 	scalabilitySpecs := datatypes.NewJSONType(domain.ApplicationScalabilitySpecifications{
 		Replicas:                       newNumberOfReplicas,
 		IsAutoScaled:                   app.ScalabilitySpecifications.Data().IsAutoScaled,

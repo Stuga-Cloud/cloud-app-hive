@@ -163,6 +163,45 @@ func (applicationContainerSpecifications ApplicationContainerSpecifications) Val
 	if applicationContainerSpecifications.MemoryLimit != nil && applicationContainerSpecifications.MemoryLimit.Val <= 0 {
 		return customErrors.NewInvalidApplicationContainerSpecificationsError("MemoryLimit must be greater than 0")
 	}
+
+	// Verify that CPU limit is contained in available choices
+	if applicationContainerSpecifications.CPULimit != nil {
+		isCPULimitContainedInAvailableChoices := false
+		for _, cpuLimitChoice := range ApplicationCPULimitChoice {
+			if applicationContainerSpecifications.CPULimit.Val == cpuLimitChoice.Value && applicationContainerSpecifications.CPULimit.Unit == cpuLimitChoice.Unit {
+				isCPULimitContainedInAvailableChoices = true
+				break
+			}
+		}
+		if !isCPULimitContainedInAvailableChoices {
+			return customErrors.NewInvalidApplicationContainerSpecificationsError(
+				fmt.Sprintf(
+					"CPU limit is not inclued in available choices: %v",
+					ApplicationCPULimitChoice,
+				),
+			)
+		}
+	}
+
+	// Verify that memory limit is contained in available choices
+	if applicationContainerSpecifications.MemoryLimit != nil {
+		isMemoryLimitContainedInAvailableChoices := false
+		for _, memoryLimitChoice := range ApplicationMemoryLimitChoice {
+			if applicationContainerSpecifications.MemoryLimit.Val == memoryLimitChoice.Value && applicationContainerSpecifications.MemoryLimit.Unit == memoryLimitChoice.Unit {
+				isMemoryLimitContainedInAvailableChoices = true
+				break
+			}
+		}
+		if !isMemoryLimitContainedInAvailableChoices {
+			return customErrors.NewInvalidApplicationContainerSpecificationsError(
+				fmt.Sprintf(
+					"Memory limit is not inclued in available choices: %v",
+					ApplicationMemoryLimitChoice,
+				),
+			)
+		}
+	}
+
 	return nil
 }
 
@@ -179,4 +218,36 @@ func (applicationContainerSpecifications ApplicationContainerSpecifications) Set
 			Unit: MB,
 		}
 	}
+}
+
+type ApplicationCPULimit struct {
+	Value int
+	Unit  ContainerCpuLimitUnit
+}
+
+// Define a constant for available choices for CPU limits
+var ApplicationCPULimitChoice = []ApplicationCPULimit{
+	{Value: 70, Unit: mCPU},
+	{Value: 140, Unit: mCPU},
+	{Value: 280, Unit: mCPU},
+	{Value: 560, Unit: mCPU},
+	// {Value: 1120, Unit: mCPU},
+	// {Value: 1680, Unit: mCPU},
+	// {Value: 2240, Unit: mCPU},
+}
+
+type ApplicationMemoryLimit struct {
+	Value int
+	Unit  ContainerMemoryLimitUnit
+}
+
+// Define a constant for available choices for memory limits
+var ApplicationMemoryLimitChoice = []ApplicationMemoryLimit{
+	{Value: 128, Unit: MB},
+	{Value: 256, Unit: MB},
+	{Value: 512, Unit: MB},
+	{Value: 1024, Unit: MB},
+	// {Value: 2048, Unit: MB},
+	// {Value: 4096, Unit: MB},
+	// {Value: 8192, Unit: MB},
 }
