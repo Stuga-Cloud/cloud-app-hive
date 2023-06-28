@@ -41,4 +41,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKER_REGISTRY }}/williamqch/cloud-app-hive:${{ github.ref_name }}
+          tags: ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.DOCKER_REPOSITORY }}/cloud-app-hive:${{ github.ref_name }}
