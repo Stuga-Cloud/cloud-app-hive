@@ -6,6 +6,7 @@ import (
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/commands"
 	"cloud-app-hive/domain/repositories"
+	"cloud-app-hive/utils"
 )
 
 type GetApplicationMetricsUseCase struct {
@@ -20,6 +21,10 @@ func (getApplicationMetricsUseCase GetApplicationMetricsUseCase) Execute(applica
 	readableMetrics := make([]domain.ApplicationMetrics, len(metrics))
 	for i, podMetrics := range metrics {
 		readableMetrics[i] = podMetrics.WithRealLifeReadableUnits()
+		_, cpuUsageInPercentage := utils.DoesUsageExceedsLimitAndHowMuchActually(readableMetrics[i].CPUUsage, readableMetrics[i].MaxCPUUsage, 0)
+		_, memoryUsageInPercentage := utils.DoesUsageExceedsLimitAndHowMuchActually(readableMetrics[i].MemoryUsage, readableMetrics[i].MaxMemoryUsage, 0)
+		readableMetrics[i].CPUUsageInPercentage = cpuUsageInPercentage
+		readableMetrics[i].MemoryUsageInPercentage = memoryUsageInPercentage
 	}
 	return readableMetrics, nil
 }

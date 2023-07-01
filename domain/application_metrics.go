@@ -6,15 +6,17 @@ import (
 )
 
 type ApplicationMetrics struct {
-	PodName               string `json:"podName"`
-	Name                  string `json:"name"`
-	CPUUsage              string `json:"cpuUsage"`
-	MaxCPUUsage           string `json:"maxCpuUsage"`
-	MemoryUsage           string `json:"memoryUsage"`
-	MaxMemoryUsage        string `json:"maxMemoryUsage"`
-	EphemeralStorageUsage string `json:"ephemeralStorageUsage"`
-	MaxEphemeralStorage   string `json:"maxEphemeralStorage"`
-	PodsUsage             string `json:"pods"`
+	PodName                 string  `json:"podName"`
+	Name                    string  `json:"name"`
+	CPUUsage                string  `json:"cpuUsage"`
+	MaxCPUUsage             string  `json:"maxCpuUsage"`
+	MemoryUsage             string  `json:"memoryUsage"`
+	MaxMemoryUsage          string  `json:"maxMemoryUsage"`
+	EphemeralStorageUsage   string  `json:"ephemeralStorageUsage"`
+	MaxEphemeralStorage     string  `json:"maxEphemeralStorage"`
+	PodsUsage               string  `json:"pods"`
+	CPUUsageInPercentage    float64 `json:"cpuUsageInPercentage"`
+	MemoryUsageInPercentage float64 `json:"memoryUsageInPercentage"`
 }
 
 func (applicationMetrics ApplicationMetrics) WithRealLifeReadableUnits() ApplicationMetrics {

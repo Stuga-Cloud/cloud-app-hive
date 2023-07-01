@@ -8,7 +8,6 @@ import (
 	"cloud-app-hive/utils"
 	"encoding/base64"
 	"encoding/json"
-	"sort"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -374,6 +373,10 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 
 	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
 
+	runtimeClassName := os.Getenv("RUNTIME_CLASS_NAME")
+	if runtimeClassName == "" {
+		runtimeClassName = "gvisor"
+	}
 	deployment := &v12.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
@@ -399,6 +402,7 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 					//		Name: "registry-cloud",
 					//	},
 					//},
+					RuntimeClassName: &runtimeClassName,
 					Containers: []v1.Container{
 						{
 							Name:  applicationName,
@@ -931,6 +935,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 
 	var deploymentConditions []domain.DeploymentCondition
 	for _, condition := range deployment.Status.Conditions {
+		fmt.Println("Condition : ", condition.Type, condition.Status, condition.LastUpdateTime, condition.LastTransitionTime, condition.Reason, condition.Message)
 		deploymentConditions = append(deploymentConditions, domain.DeploymentCondition{
 			Type:               string(condition.Type),
 			Status:             string(condition.Status),
@@ -942,18 +947,18 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 	}
 
 	// Order the deploymentConditions slice if there are different last update times
-	isDifferentLastUpdateTimes := false
-	for i := 0; i < len(deploymentConditions)-1; i++ {
-		if deploymentConditions[i].LastUpdateTime != deploymentConditions[i+1].LastUpdateTime {
-			isDifferentLastUpdateTimes = true
-			break
-		}
-	}
-	if len(deploymentConditions) > 1 && isDifferentLastUpdateTimes {
-		sort.Slice(deploymentConditions, func(i, j int) bool {
-			return deploymentConditions[i].LastUpdateTime > deploymentConditions[j].LastUpdateTime
-		})
-	}
+	// isDifferentLastUpdateTimes := false
+	// for i := 0; i < len(deploymentConditions)-1; i++ {
+	// 	if deploymentConditions[i].LastUpdateTime != deploymentConditions[i+1].LastUpdateTime {
+	// 		isDifferentLastUpdateTimes = true
+	// 		break
+	// 	}
+	// }
+	// if len(deploymentConditions) > 1 && isDifferentLastUpdateTimes {
+	// 	sort.Slice(deploymentConditions, func(i, j int) bool {
+	// 		return deploymentConditions[i].LastUpdateTime > deploymentConditions[j].LastUpdateTime
+	// 	})
+	// }
 
 	// REVERSE the deploymentConditions slice
 	//for i := len(deploymentConditions)/2 - 1; i >= 0; i-- {

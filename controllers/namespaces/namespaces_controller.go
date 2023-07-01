@@ -181,12 +181,14 @@ func (namespaceController NamespaceController) FindNamespaceByIDController(c *gi
 	}
 	foundNamespace, userApplications, err := namespaceController.findNamespaceByIDUseCase.Execute(namespaceID, userID)
 	if err != nil {
+		fmt.Printf("Error while finding namespace by id: %s", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	foundNamespace.Applications, err = namespaceController.fillApplicationsStatusUseCase.Execute(foundNamespace.Name, foundNamespace.Applications)
 	if err != nil {
+		fmt.Printf("Error while filling applications status: %s", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

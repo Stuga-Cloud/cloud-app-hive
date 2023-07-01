@@ -77,9 +77,6 @@ func (r GORMApplicationRepository) FindByUserID(userID string) ([]domain.Applica
 	if result.Error != nil {
 		return nil, fmt.Errorf("error finding application: %w", result.Error)
 	}
-	if result.RowsAffected == 0 {
-		return nil, fmt.Errorf("application not found with user ID %s", userID)
-	}
 	return applications, nil
 }
 
