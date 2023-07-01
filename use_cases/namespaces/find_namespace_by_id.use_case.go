@@ -9,17 +9,18 @@ import (
 )
 
 type FindNamespaceByIDUseCase struct {
-	NamespaceRepository repositories.NamespaceRepository
+	NamespaceRepository   repositories.NamespaceRepository
+	ApplicationRepository repositories.ApplicationRepository
 }
 
-func (findNamespaceByIDUseCase FindNamespaceByIDUseCase) Execute(id, userId string) (*domain.Namespace, error) {
+func (findNamespaceByIDUseCase FindNamespaceByIDUseCase) Execute(id, userId string) (*domain.Namespace, []domain.Application, error) {
 	namespace, err := findNamespaceByIDUseCase.NamespaceRepository.FindByID(id)
 	if err != nil {
 		fmt.Println(err)
-		return nil, err
+		return nil, nil, err
 	}
 	if namespace == nil {
-		return nil, fmt.Errorf("namespace not found with ID %s", id)
+		return nil, nil, fmt.Errorf("namespace not found with ID %s", id)
 	}
 
 	isAdmin := false
@@ -30,8 +31,13 @@ func (findNamespaceByIDUseCase FindNamespaceByIDUseCase) Execute(id, userId stri
 		}
 	}
 	if !isAdmin {
-		return nil, errors.NewUnauthorizedToAccessNamespaceError(namespace.ID, namespace.Name, userId)
+		return nil, nil, errors.NewUnauthorizedToAccessNamespaceError(namespace.ID, namespace.Name, userId)
 	}
 
-	return namespace, nil
+	userApplications, err := findNamespaceByIDUseCase.ApplicationRepository.FindByUserID(userId)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return namespace, userApplications, nil
 }

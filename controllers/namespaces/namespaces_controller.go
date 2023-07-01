@@ -2,6 +2,7 @@ package namespaces
 
 import (
 	"cloud-app-hive/controllers/errors"
+	"cloud-app-hive/domain"
 	"cloud-app-hive/use_cases/applications"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"cloud-app-hive/controllers/validators"
 	"cloud-app-hive/domain/commands"
 	"cloud-app-hive/use_cases/namespaces"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -177,7 +179,7 @@ func (namespaceController NamespaceController) FindNamespaceByIDController(c *gi
 		c.JSON(http.StatusBadRequest, gin.H{"error": "userId query param is required"})
 		return
 	}
-	foundNamespace, err := namespaceController.findNamespaceByIDUseCase.Execute(namespaceID, userID)
+	foundNamespace, userApplications, err := namespaceController.findNamespaceByIDUseCase.Execute(namespaceID, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -191,6 +193,14 @@ func (namespaceController NamespaceController) FindNamespaceByIDController(c *gi
 
 	c.JSON(http.StatusOK, gin.H{
 		"namespace": foundNamespace,
+		"limits": map[string]interface{}{
+			"maxApplicationsByNamespace":           domain.MaxApplicationsByNamespace,
+			"maxApplicationsByUser":                domain.MaxApplicationsByUser,
+			"currentApplicationsByUser":            len(userApplications),
+			"currentApplicationsByNamespace":       len(foundNamespace.Applications),
+			"hasReachedMaxApplicationsByNamespace": len(foundNamespace.Applications) >= domain.MaxApplicationsByNamespace,
+			"hasReachedMaxApplicationsByUser":      len(userApplications) >= domain.MaxApplicationsByUser,
+		},
 	})
 }
 

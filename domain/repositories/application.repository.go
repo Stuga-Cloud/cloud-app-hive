@@ -13,11 +13,11 @@ type ApplicationRepository interface {
 	// FindByID returns an application by its ID
 	FindByID(id string) (*domain.Application, error)
 
-	// FindByUserID returns an application by its user ID
-	FindByUserID(userID string) (*domain.Application, error)
+	// FindByUserID returns applications by its user ID
+	FindByUserID(userID string) ([]domain.Application, error)
 
-	// FindByNamespaceIDAndUserID returns an application by namespace ID and user ID
-	FindByNamespaceIDAndUserID(namespaceID string, userID string) ([]domain.Application, error)
+	// FindByNamespaceIDAndUserID returns an application by namespace ID
+	FindByNamespaceIDAndUserID(namespaceID string) ([]domain.Application, error)
 
 	// FindByNamespaceIDAndName returns an application by namespace ID and name
 	FindByNamespaceIDAndName(namespaceID string, name string) (*domain.Application, error)

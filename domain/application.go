@@ -37,3 +37,6 @@ type Application struct {
 	CreatedAt                 time.Time                                                 `json:"createdAt" gorm:"autoCreateTime;not null"`
 	DeletedAt                 *gorm.DeletedAt                                           `json:"deletedAt" gorm:"index;default:null"`
 }
+
+const MaxApplicationsByUser = 3
+const MaxApplicationsByNamespace = 3

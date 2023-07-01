@@ -68,27 +68,26 @@ func (r GORMApplicationRepository) FindByID(id string) (*domain.Application, err
 	return app, nil
 }
 
-// FindByUserID returns an application by its user ID
-func (r GORMApplicationRepository) FindByUserID(userID string) (*domain.Application, error) {
-	app := domain.Application{}
-	result := r.Database.Find(&app, domain.Application{
+// FindByUserID returns applications by its user ID
+func (r GORMApplicationRepository) FindByUserID(userID string) ([]domain.Application, error) {
+	var applications []domain.Application
+	result := r.Database.Find(&applications, domain.Application{
 		UserID: userID,
-	}).Limit(1)
+	})
 	if result.Error != nil {
 		return nil, fmt.Errorf("error finding application: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return nil, fmt.Errorf("application not found with user ID %s", userID)
 	}
-	return &app, nil
+	return applications, nil
 }
 
 // FindByNamespaceIDAndUserID returns an application by namespace ID and user ID
-func (r GORMApplicationRepository) FindByNamespaceIDAndUserID(namespaceID string, userID string) ([]domain.Application, error) {
+func (r GORMApplicationRepository) FindByNamespaceIDAndUserID(namespaceID string) ([]domain.Application, error) {
 	var applications []domain.Application
 	result := r.Database.Where("deleted_at IS NULL").Find(&applications, domain.Application{
 		NamespaceID: namespaceID,
-		UserID:      userID,
 	})
 	if result.Error != nil {
 		return nil, fmt.Errorf("error finding applications: %w", result.Error)

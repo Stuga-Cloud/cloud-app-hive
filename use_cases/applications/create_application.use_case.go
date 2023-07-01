@@ -25,16 +25,27 @@ func (createApplicationUseCase CreateApplicationUseCase) Execute(createApplicati
 		return nil, nil, fmt.Errorf("user %s is not allowed to access namespace %s", createApplication.UserID, createApplication.NamespaceID)
 	}
 
-	foundUserAndNamespaceApplications, err := createApplicationUseCase.ApplicationRepository.FindByNamespaceIDAndUserID(createApplication.NamespaceID, createApplication.UserID)
+	foundApplicationsByNamespace, err := createApplicationUseCase.ApplicationRepository.FindByNamespaceIDAndUserID(createApplication.NamespaceID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error while finding applications by namespace id and user id: %w", err)
+		return nil, nil, fmt.Errorf("error while finding applications by namespace id: %w", err)
 	}
-	if len(foundUserAndNamespaceApplications) > 0 {
-		for _, foundApplication := range foundUserAndNamespaceApplications {
+	if len(foundApplicationsByNamespace) >= domain.MaxApplicationsByNamespace {
+		return nil, nil, fmt.Errorf("maximum number of applications reached for namespace %s", createApplication.NamespaceID)
+	}
+	if len(foundApplicationsByNamespace) > 0 {
+		for _, foundApplication := range foundApplicationsByNamespace {
 			if foundApplication.Name == createApplication.Name {
 				return nil, nil, fmt.Errorf("application %s already exists in namespace %s", createApplication.Name, createApplication.NamespaceID)
 			}
 		}
+	}
+
+	foundApplicationsByUser, err := createApplicationUseCase.ApplicationRepository.FindByUserID(createApplication.UserID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error while finding applications by user id: %w", err)
+	}
+	if len(foundApplicationsByUser) >= domain.MaxApplicationsByUser {
+		return nil, nil, fmt.Errorf("maximum number of applications reached for user %s", createApplication.UserID)
 	}
 
 	// Create the application
