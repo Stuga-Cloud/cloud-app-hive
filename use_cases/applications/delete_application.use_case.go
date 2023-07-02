@@ -26,7 +26,8 @@ func (deleteApplicationUseCase DeleteApplicationUseCase) Execute(deleteApplicati
 			break
 		}
 	}
-	if !isAdmin {
+	isAppOwner := application.UserID == deleteApplication.UserID
+	if !isAdmin && !isAppOwner {
 		return nil, errors.NewUnauthorizedToAccessNamespaceError(application.Namespace.ID, application.Namespace.Name, deleteApplication.UserID)
 	}
 

@@ -8,6 +8,7 @@ import (
 	"cloud-app-hive/utils"
 	"encoding/base64"
 	"encoding/json"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -183,7 +184,6 @@ func (containerManager KubernetesContainerManagerRepository) ApplyApplication(
 		}
 	}
 
-	// Apply a secret for using private registry (registry-cloud.machavoine.fr)
 	if usesPrivateRegistry(applyApplication.Registry) {
 		err = containerManager.applyPrivateRegistrySecret(clientset, applyApplication)
 		if err != nil {
@@ -261,6 +261,20 @@ func (containerManager KubernetesContainerManagerRepository) applyPrivateRegistr
 	privateRegistryUrl := os.Getenv("PRIVATE_HARBOR_REGISTRY_URL")
 	privateRegistryUsername := os.Getenv("PRIVATE_HARBOR_REGISTRY_USERNAME")
 	privateRegistryPassword := os.Getenv("PRIVATE_HARBOR_REGISTRY_PASSWORD")
+	secretName := fmt.Sprintf("%s-private-registry-secret", deployApplication.Name)
+	encodedAuth := base64.URLEncoding.EncodeToString([]byte(
+		fmt.Sprintf("%s:%s", privateRegistryUsername, privateRegistryPassword),
+	))
+	// s.Auth = base64.URLEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", s.Username, s.Password)))
+	// data := k8sDockerRegistrySecretData{
+	// 	Auths: map[string]k8sDockerRegistrySecret{
+	// 		registry: s,
+	// 	},
+	// }
+	// authBytes, _ := json.Marshal(data)
+	//     // delete this line
+	// // reStr := base64.URLEncoding.EncodeToString(authBytes)
+	// return authBytes
 
 	// Create the data for the Secret
 	secretData := DockerRegistrySecretData{
@@ -272,7 +286,7 @@ func (containerManager KubernetesContainerManagerRepository) applyPrivateRegistr
 			privateRegistryUrl: {
 				Username: privateRegistryUsername,
 				Password: privateRegistryPassword,
-				Auth:     base64.StdEncoding.EncodeToString([]byte(privateRegistryUsername + ":" + privateRegistryPassword)),
+				Auth:     encodedAuth,
 			},
 		},
 	}
@@ -284,7 +298,6 @@ func (containerManager KubernetesContainerManagerRepository) applyPrivateRegistr
 	}
 
 	applicationNamespace := deployApplication.Namespace
-	secretName := "private-registry-secret"
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
@@ -292,7 +305,7 @@ func (containerManager KubernetesContainerManagerRepository) applyPrivateRegistr
 		},
 		Type: v1.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
-			".dockerconfigjson": secretDataJSON,
+			".dockerconfigjson": []byte(secretDataJSON),
 		},
 	}
 
@@ -327,6 +340,10 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 	applicationNamespace := deployApplication.Namespace
 	applicationName := deployApplication.Name
 	applicationImage := deployApplication.Image
+	if usesPrivateRegistry(deployApplication.Registry) {
+		privateRegistryUrl := os.Getenv("PRIVATE_HARBOR_REGISTRY_URL")
+		applicationImage = fmt.Sprintf("%s/%s", privateRegistryUrl, deployApplication.Image)
+	}
 	// applicationPort := deployApplication.Port
 	applicationEnvironmentVariables := make([]v1.EnvVar, 0)
 	for _, environmentVariable := range deployApplication.EnvironmentVariables {
@@ -381,6 +398,11 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      deploymentName,
 			Namespace: applicationNamespace,
+			Annotations: map[string]string{
+				"app.kubernetes.io/name":            applicationName,
+				"app.kubernetes.io/managedBy":       "cloud-app-hive",
+				"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
+			},
 		},
 		Spec: v12.DeploymentSpec{
 			Replicas: &replicas,
@@ -396,12 +418,6 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 					},
 				},
 				Spec: v1.PodSpec{
-					// TODO Image can be from docker hub or private registry (url =registry-cloud.machavoine.fr)
-					//ImagePullSecrets: []v1.LocalObjectReference{
-					//	{
-					//		Name: "registry-cloud",
-					//	},
-					//},
 					RuntimeClassName: &runtimeClassName,
 					Containers: []v1.Container{
 						{
@@ -425,7 +441,7 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 		fmt.Println("Using private registry in deployment")
 		deployment.Spec.Template.Spec.ImagePullSecrets = []v1.LocalObjectReference{
 			{
-				Name: "private-registry-secret",
+				Name: fmt.Sprintf("%s-private-registry-secret", deployApplication.Name),
 			},
 		}
 	}
@@ -632,6 +648,15 @@ func (containerManager KubernetesContainerManagerRepository) applyIngress(client
 			},
 		},
 		Spec: v13.IngressSpec{
+			IngressClassName: func() *string { s := "nginx"; return &s }(),
+			// TLS: []v13.IngressTLS{
+			// 	{
+			// 		Hosts: []string{
+			// 			fmt.Sprintf("%s.%s.%s", applicationName, applicationNamespace, domainName),
+			// 		},
+			// 		SecretName: fmt.Sprintf("%s-tls", applicationName),
+			// 	},
+			// },
 			Rules: []v13.IngressRule{
 				{
 					Host: fmt.Sprintf("%s.%s.%s", applicationName, applicationNamespace, domainName),
@@ -906,6 +931,21 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 		}
 	}
 
+	pods, err := clientset.CoreV1().Pods(applicationNamespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("app=%s", deploymentName),
+	})
+	if err != nil {
+		return nil, &customErrors.ContainerManagerApplicationInformationError{
+			Message:         fmt.Sprintf("Getting pods failed : %s", err.Error()),
+			ApplicationName: applicationName,
+			Namespace:       applicationNamespace,
+			Type:            "Pods",
+		}
+	}
+	podList := domain.ConvertPods(pods)
+	podList.Items = domain.ComputeHumanizedPodStatus(&podList.Items)
+	fmt.Println(podList.Items[0].HumanizedStatus)
+
 	serviceName := fmt.Sprintf("%s-service", applicationName)
 	service, err := clientset.CoreV1().Services(applicationNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
 	if err != nil {
@@ -916,7 +956,6 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 			Type:            "Service",
 		}
 	}
-	//fmt.Printf("Service status : %s", service.ApplicationDeploymentStatus.String())
 
 	ingressName := fmt.Sprintf("%s-ingress", applicationName)
 
@@ -931,11 +970,9 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 			Type:            "Ingress",
 		}
 	}
-	fmt.Println("Ingress status : " + ingress.Status.String())
 
 	var deploymentConditions []domain.DeploymentCondition
 	for _, condition := range deployment.Status.Conditions {
-		fmt.Println("Condition : ", condition.Type, condition.Status, condition.LastUpdateTime, condition.LastTransitionTime, condition.Reason, condition.Message)
 		deploymentConditions = append(deploymentConditions, domain.DeploymentCondition{
 			Type:               string(condition.Type),
 			Status:             string(condition.Status),
@@ -977,6 +1014,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 		CurrentReplicas:     deployment.Status.Replicas,
 		UpdatedReplicas:     deployment.Status.UpdatedReplicas,
 		DeploymentCondition: deploymentConditions,
+		PodList:             podList,
 		ServiceStatus: domain.ServiceStatus{
 			Name: serviceName,
 			Type: string(service.Spec.Type),

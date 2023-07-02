@@ -21,8 +21,15 @@ func (createApplicationUseCase CreateApplicationUseCase) Execute(createApplicati
 	if foundNamespaceByID == nil {
 		return nil, nil, fmt.Errorf("no namespace found for namespace id %s", createApplication.NamespaceID)
 	}
-	if foundNamespaceByID.UserID != createApplication.UserID {
-		return nil, nil, fmt.Errorf("user %s is not allowed to access namespace %s", createApplication.UserID, createApplication.NamespaceID)
+	isMember := false
+	for _, member := range foundNamespaceByID.Memberships {
+		if member.UserID == createApplication.UserID {
+			isMember = true
+			break
+		}
+	}
+	if !isMember {
+		return nil, nil, fmt.Errorf("user %s is not member of namespace %s, he cannot create application", createApplication.UserID, createApplication.NamespaceID)
 	}
 
 	foundApplicationsByNamespace, err := createApplicationUseCase.ApplicationRepository.FindByNamespaceIDAndUserID(createApplication.NamespaceID)

@@ -21,6 +21,17 @@ func (deleteNamespaceByIDUseCase DeleteNamespaceByIDUseCase) Execute(id string, 
 		return nil, fmt.Errorf("namespace not found with ID %s while deleting", id)
 	}
 
+	isAdmin := false
+	for _, member := range foundNamespace.Memberships {
+		if member.UserID == userId && member.Role == domain.RoleAdmin {
+			isAdmin = true
+			break
+		}
+	}
+	if !isAdmin {
+		return nil, fmt.Errorf("user %s is not admin of namespace %s, he cannot delete namespace", userId, id)
+	}
+
 	err = deleteNamespaceByIDUseCase.ContainerManagerRepository.DeleteNamespace(foundNamespace.Name)
 	if err != nil {
 		return nil, err

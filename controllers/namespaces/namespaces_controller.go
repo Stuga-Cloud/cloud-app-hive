@@ -181,6 +181,21 @@ func (namespaceController NamespaceController) FindNamespaceByIDController(c *gi
 	}
 	foundNamespace, userApplications, err := namespaceController.findNamespaceByIDUseCase.Execute(namespaceID, userID)
 	if err != nil {
+		if _, ok := err.(*errors.UnauthorizedToAccessNamespaceError); ok {
+			c.JSON(http.StatusForbidden, errors.NewApiError(
+				http.StatusForbidden,
+				"user_unauthorized_to_access_namespace",
+				fmt.Sprintf("The user with ID %s is not authorized to access the namespace with ID %s", userID, namespaceID),
+				"If user should be authorized to access the namespace, please contact the namespace admin(s) to grant access to the user",
+				c,
+				map[string]interface{}{
+					"query_params": c.Request.URL.Query(),
+					"namespace_id": namespaceID,
+					"userId":       userID,
+				},
+			))
+			return
+		}
 		fmt.Printf("Error while finding namespace by id: %s", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

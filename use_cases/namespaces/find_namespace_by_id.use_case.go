@@ -23,14 +23,14 @@ func (findNamespaceByIDUseCase FindNamespaceByIDUseCase) Execute(id, userId stri
 		return nil, nil, fmt.Errorf("namespace not found with ID %s", id)
 	}
 
-	isAdmin := false
+	isMember := false
 	for _, member := range namespace.Memberships {
-		if member.UserID == userId && member.Role == domain.RoleAdmin {
-			isAdmin = true
+		if member.UserID == userId {
+			isMember = true
 			break
 		}
 	}
-	if !isAdmin {
+	if !isMember {
 		return nil, nil, errors.NewUnauthorizedToAccessNamespaceError(namespace.ID, namespace.Name, userId)
 	}
 

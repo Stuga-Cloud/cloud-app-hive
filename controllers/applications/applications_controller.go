@@ -77,10 +77,9 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 		return
 	}
 
-	fmt.Println("Request body: ", c.Request.Body)
-
 	var createApplicationRequest requests.CreateApplicationRequest
 	if err := c.ShouldBindJSON(&createApplicationRequest); err != nil {
+		fmt.Println("Error while binding json when creating application: ", err)
 		c.JSON(http.StatusBadRequest, errors.NewApiError(
 			http.StatusBadRequest,
 			"validation_errors",
@@ -97,6 +96,7 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 
 	err := requests.ValidateCreateApplicationRequest(createApplicationRequest)
 	if err != nil {
+		fmt.Println("Error while validating create application request: ", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"validation-errors": fmt.Errorf("error while validating create application request: %w", err).Error(),
 		})
@@ -106,6 +106,7 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 
 	err = validators.ValidateEmail(createApplicationRequest.AdministratorEmail)
 	if err != nil {
+		fmt.Println("Error while validating create application request: ", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"validation-errors": fmt.Errorf("error while validating create application request: %w", err).Error(),
 		})
@@ -128,11 +129,9 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 		AdministratorEmail:        createApplicationRequest.AdministratorEmail,
 	}
 
-	fmt.Println("createApplicationRequest environment variables: ", createApplicationRequest.EnvironmentVariables)
-	fmt.Println("createApplicationRequest secrets: ", createApplicationRequest.Secrets)
-
 	application, namespace, err := applicationController.createApplicationUseCase.Execute(createApplication)
 	if err != nil {
+		fmt.Println("Error while creating application: ", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -214,12 +213,14 @@ func (applicationController ApplicationController) FindApplicationByIDController
 
 	applicationID := c.Param("id")
 	if applicationID == "" {
+		fmt.Println("Application ID url param is required")
 		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": "Application ID url param is required"})
 		return
 	}
 
 	queryByUserID := c.Query("userId")
 	if queryByUserID == "" {
+		fmt.Println("userId query param is required")
 		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": "userId query param is required"})
 		return
 	}
@@ -229,6 +230,7 @@ func (applicationController ApplicationController) FindApplicationByIDController
 		QueryByUserID: queryByUserID,
 	})
 	if err != nil {
+		fmt.Println("Error while finding application by ID: ", err)
 		if _, ok := err.(*errors.UnauthorizedToAccessNamespaceError); ok {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
@@ -240,6 +242,7 @@ func (applicationController ApplicationController) FindApplicationByIDController
 
 	applicationsWithStatus, err := applicationController.fillApplicationsStatusUseCase.Execute(foundApplication.Namespace.Name, []domain.Application{*foundApplication})
 	if err != nil {
+		fmt.Println("Error while filling applications status: ", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -340,6 +343,7 @@ func (applicationController ApplicationController) DeleteApplicationByIDControll
 	applicationID := c.Param("id")
 	userID := c.Query("userId")
 	if applicationID == "" || userID == "" {
+		fmt.Println("Application ID url param and 'userId' query param must be provided")
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Application ID url param and 'userId' query param must be provided"})
 		return
 	}
@@ -349,22 +353,11 @@ func (applicationController ApplicationController) DeleteApplicationByIDControll
 		QueryByUserID: userID,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error while finding application by ID: ", err)
 		if _, ok := err.(*errors.UnauthorizedToAccessNamespaceError); ok {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	unapplyApplication := commands.UnapplyApplication{
-		Name:      foundApplication.Name,
-		Namespace: foundApplication.Namespace.Name,
-	}
-	err = applicationController.undeployApplicationUseCase.Execute(unapplyApplication)
-	if err != nil {
-		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -375,7 +368,18 @@ func (applicationController ApplicationController) DeleteApplicationByIDControll
 	}
 	deletedApplication, err := applicationController.deleteApplicationUseCase.Execute(deleteApplication)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error while deleting application: ", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	unapplyApplication := commands.UnapplyApplication{
+		Name:      foundApplication.Name,
+		Namespace: foundApplication.Namespace.Name,
+	}
+	err = applicationController.undeployApplicationUseCase.Execute(unapplyApplication)
+	if err != nil {
+		fmt.Println("Error while undeploying application: ", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

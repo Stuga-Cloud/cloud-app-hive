@@ -62,6 +62,7 @@ type ApplicationStatus struct {
 	CurrentReplicas           int32                        `json:"currentReplicas"`
 	UpdatedReplicas           int32                        `json:"updatedReplicas"`
 	DeploymentCondition       []DeploymentCondition        `json:"deploymentCondition"`
+	PodList                   PodList                      `json:"podList"`
 	ComputedApplicationStatus *ApplicationDeploymentStatus `json:"computedApplicationStatus"`
 	HumanizedStatus           string                       `json:"humanizedStatus"`
 	ServiceStatus             ServiceStatus                `json:"serviceStatus"`
@@ -108,7 +109,7 @@ func (appStatus ApplicationStatus) ComputeApplicationStatus() (*ApplicationDeplo
 			}
 		}
 	}
-	
+
 	appStatus.ComputedApplicationStatus = &computedStatus
 	appStatus.HumanizedStatus = humanizedStatus
 
