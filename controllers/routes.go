@@ -62,6 +62,7 @@ func InitRoutes(
 			getApplicationMetricsUseCase,
 			getApplicationStatusUseCase,
 			fillApplicationsStatusUseCase,
+			getClusterMetricsUseCase,
 		)
 		cluster.InitClusterRoutes(
 			api,

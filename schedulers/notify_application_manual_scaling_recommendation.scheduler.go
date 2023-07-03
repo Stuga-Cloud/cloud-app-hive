@@ -5,7 +5,6 @@ import (
 	"cloud-app-hive/domain/commands"
 	"cloud-app-hive/services"
 	"cloud-app-hive/use_cases/applications"
-	"cloud-app-hive/utils"
 	"fmt"
 	"os"
 	"strconv"
@@ -69,8 +68,8 @@ func (scheduler NotifyApplicationScalingRecommendationScheduler) Launch() {
 						acceptedCPUUsageThreshold := application.ScalabilitySpecifications.Data().CpuUsagePercentageThreshold
 						acceptedMemoryUsageThreshold := application.ScalabilitySpecifications.Data().MemoryUsagePercentageThreshold
 						for _, metric := range metrics {
-							doesExceedCPUAcceptedPercentage, actualCPUUsage := utils.DoesUsageExceedsLimitAndHowMuchActually(metric.CPUUsage, metric.MaxCPUUsage, acceptedCPUUsageThreshold)
-							doesExceedMemoryAcceptedPercentage, actualMemoryUsage := utils.DoesUsageExceedsLimitAndHowMuchActually(metric.MemoryUsage, metric.MaxMemoryUsage, acceptedMemoryUsageThreshold)
+							doesExceedCPUAcceptedPercentage, actualCPUUsage := domain.DoesUsageExceedsLimitAndHowMuchActually(metric.CPUUsage, metric.MaxCPUUsage, acceptedCPUUsageThreshold)
+							doesExceedMemoryAcceptedPercentage, actualMemoryUsage := domain.DoesUsageExceedsLimitAndHowMuchActually(metric.MemoryUsage, metric.MaxMemoryUsage, acceptedMemoryUsageThreshold)
 							// doesExceedEphemeralStorageAcceptedPercentage, actualEphemeralStorageUsage := utils.DoesUsageExceedsLimitAndHowMuchActually(metric.EphemeralStorageUsage, metric.MaxEphemeralStorage, acceptedUsagePercentage)
 
 							compareActualUsageToAcceptedPercentageResult := domain.CompareActualUsageToAcceptedPercentageResult{

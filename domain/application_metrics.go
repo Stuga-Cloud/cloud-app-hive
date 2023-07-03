@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"cloud-app-hive/utils"
 	"fmt"
 )
 
@@ -20,13 +19,13 @@ type ApplicationMetrics struct {
 }
 
 func (applicationMetrics ApplicationMetrics) WithRealLifeReadableUnits() ApplicationMetrics {
-	applicationMetrics.CPUUsage = utils.ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.CPUUsage)
-	applicationMetrics.MaxCPUUsage = utils.ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.MaxCPUUsage)
-	applicationMetrics.MemoryUsage = utils.ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.MemoryUsage)
-	applicationMetrics.MaxMemoryUsage = utils.ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.MaxMemoryUsage)
-	applicationMetrics.EphemeralStorageUsage = utils.ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.EphemeralStorageUsage)
-	applicationMetrics.MaxEphemeralStorage = utils.ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.MaxEphemeralStorage)
-	applicationMetrics.PodsUsage = utils.ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.PodsUsage)
+	applicationMetrics.CPUUsage = ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.CPUUsage)
+	applicationMetrics.MaxCPUUsage = ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.MaxCPUUsage)
+	applicationMetrics.MemoryUsage = ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.MemoryUsage)
+	applicationMetrics.MaxMemoryUsage = ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.MaxMemoryUsage)
+	applicationMetrics.EphemeralStorageUsage = ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.EphemeralStorageUsage)
+	applicationMetrics.MaxEphemeralStorage = ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.MaxEphemeralStorage)
+	applicationMetrics.PodsUsage = ConvertK8sResourceToReadableHumanValueAndUnit(applicationMetrics.PodsUsage)
 	return applicationMetrics
 }
 

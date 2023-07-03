@@ -1,7 +1,9 @@
 package applications
 
 import (
+	"cloud-app-hive/use_cases"
 	"cloud-app-hive/use_cases/applications"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,6 +20,7 @@ func InitApplicationsRoutes(
 	getApplicationMetricsUseCase applications.GetApplicationMetricsUseCase,
 	getApplicationStatusUseCase applications.GetApplicationStatusUseCase,
 	fillApplicationStatusUseCase applications.FillApplicationStatusUseCase,
+	getClusterMetricsUseCase use_cases.GetClusterMetricsUseCase,
 ) {
 	applicationController := NewApplicationController(
 		findApplicationsUseCase,
@@ -31,6 +34,7 @@ func InitApplicationsRoutes(
 		getApplicationMetricsUseCase,
 		getApplicationStatusUseCase,
 		fillApplicationStatusUseCase,
+		getClusterMetricsUseCase,
 	)
 	router.GET("/applications", applicationController.FindApplicationsController)
 	router.POST("/applications", applicationController.CreateAndDeployApplicationController)

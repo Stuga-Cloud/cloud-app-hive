@@ -13,7 +13,7 @@ type NodeMetrics struct {
 	ReadableEphemeralStorageUsage string `json:"readableEphemeralStorageUsage"`
 }
 
-type NodeCapacity struct {
+type NodeCapacities struct {
 	Name                     string `json:"name"`
 	CPULimit                 string `json:"cpuLimit"`
 	MemoryLimit              string `json:"memoryLimit"`
@@ -25,7 +25,16 @@ type NodeCapacity struct {
 	ReadableEphemeralStorage string `json:"readableEphemeralStorage"`
 }
 
+type NodeComputedUsage struct {
+	Name                              string  `json:"name"`
+	CPUUsageInPercentage              float64 `json:"cpuUsageInPercentage"`
+	MemoryUsageInPercentage           float64 `json:"memoryUsageInPercentage"`
+	StorageUsageInPercentage          float64 `json:"storageUsageInPercentage"`
+	EphemeralStorageUsageInPercentage float64 `json:"ephemeralStorageUsageInPercentage"`
+}
+
 type ClusterMetrics struct {
-	NodesMetrics    []NodeMetrics  `json:"nodesMetrics"`
-	NodesCapacities []NodeCapacity `json:"nodesCapacities"`
+	NodesMetrics        []NodeMetrics       `json:"nodesMetrics"`
+	NodesCapacities     []NodeCapacities    `json:"nodesCapacities"`
+	NodesComputedUsages []NodeComputedUsage `json:"computedUsage"`
 }

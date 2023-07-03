@@ -179,9 +179,7 @@ func convertAny(in interface{}) any {
 }
 
 func ComputeHumanizedPodStatus(pods *[]Pod) []Pod {
-	fmt.Println("Computing humanized pod status")
 	for _, pod := range *pods {
-		fmt.Println("Computing humanized pod status for pod", pod.MetaData.Name)
 		pod.HumanizedStatus = fmt.Sprintf("Pod %s is in an unknown state", pod.MetaData.Name)
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			if containerStatus.State.Waiting != nil {

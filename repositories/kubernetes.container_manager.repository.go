@@ -5,19 +5,16 @@ import (
 	customErrors "cloud-app-hive/controllers/errors"
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/commands"
-	"cloud-app-hive/utils"
 	"encoding/base64"
 	"encoding/json"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	//"cloud-app-hive/utils"
 	"context"
 	"fmt"
 	"io"
 
-	//"k8s.io/apimachinery/pkg/api/resource"
 	"os"
 	"strings"
 
@@ -385,8 +382,8 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 	}
 	rawCpuLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.CPULimit.Val, deployApplication.ContainerSpecifications.CPULimit.Unit)
 	rawMemoryLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.MemoryLimit.Val, deployApplication.ContainerSpecifications.MemoryLimit.Unit)
-	cpuLimit := resource.MustParse(utils.ConvertReadableHumanValueAndUnitToK8sResource(rawCpuLimit))
-	memoryLimit := resource.MustParse(utils.ConvertReadableHumanValueAndUnitToK8sResource(rawMemoryLimit))
+	cpuLimit := resource.MustParse(domain.ConvertReadableHumanValueAndUnitToK8sResource(rawCpuLimit))
+	memoryLimit := resource.MustParse(domain.ConvertReadableHumanValueAndUnitToK8sResource(rawMemoryLimit))
 
 	deploymentName := fmt.Sprintf("%s-deployment", applicationName)
 
@@ -1063,14 +1060,14 @@ func (containerManager KubernetesContainerManagerRepository) GetClusterMetrics()
 			EphemeralStorageUsage: nodeMetric.Usage.StorageEphemeral().String(),
 			Pods:                  nodeMetric.Usage.Pods().String(),
 
-			ReadableCPUUsage: utils.ConvertK8sResourceToReadableHumanValueAndUnit(nodeMetric.Usage.Cpu().String()),
-			ReadableMemoryUsage: utils.ConvertK8sResourceToReadableHumanValueAndUnit(
+			ReadableCPUUsage: domain.ConvertK8sResourceToReadableHumanValueAndUnit(nodeMetric.Usage.Cpu().String()),
+			ReadableMemoryUsage: domain.ConvertK8sResourceToReadableHumanValueAndUnit(
 				nodeMetric.Usage.Memory().String(),
 			),
-			ReadableStorageUsage: utils.ConvertK8sResourceToReadableHumanValueAndUnit(
+			ReadableStorageUsage: domain.ConvertK8sResourceToReadableHumanValueAndUnit(
 				nodeMetric.Usage.Storage().String(),
 			),
-			ReadableEphemeralStorageUsage: utils.ConvertK8sResourceToReadableHumanValueAndUnit(
+			ReadableEphemeralStorageUsage: domain.ConvertK8sResourceToReadableHumanValueAndUnit(
 				nodeMetric.Usage.StorageEphemeral().String(),
 			),
 		})
@@ -1087,24 +1084,33 @@ func (containerManager KubernetesContainerManagerRepository) GetClusterMetrics()
 		return nil, err
 	}
 
-	var nodeCapacities []domain.NodeCapacity
+	var nodeCapacities []domain.NodeCapacities
 	for _, node := range nodeList.Items {
-		nodeCapacities = append(nodeCapacities, domain.NodeCapacity{
+		nodeCapacities = append(nodeCapacities, domain.NodeCapacities{
 			Name:                     node.Name,
 			CPULimit:                 node.Status.Capacity.Cpu().String(),
 			MemoryLimit:              node.Status.Capacity.Memory().String(),
 			StorageLimit:             node.Status.Capacity.Storage().String(),
 			EphemeralStorageLimit:    node.Status.Capacity.StorageEphemeral().String(),
-			ReadableCPU:              utils.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.Cpu().String()),
-			ReadableMemory:           utils.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.Memory().String()),
-			ReadableStorage:          utils.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.Storage().String()),
-			ReadableEphemeralStorage: utils.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.StorageEphemeral().String()),
+			ReadableCPU:              domain.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.Cpu().String()),
+			ReadableMemory:           domain.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.Memory().String()),
+			ReadableStorage:          domain.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.Storage().String()),
+			ReadableEphemeralStorage: domain.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.StorageEphemeral().String()),
 		})
 	}
 
+	nodesComputedUsages, err := domain.ComputeNodesUsagesFromMetricsAndCapacities(
+		nodeMetrics, nodeCapacities,
+	)
+	if err != nil {
+		fmt.Println("Error while computing nodes usages : " + err.Error())
+		return nil, err
+	}
+
 	clusterMetrics := domain.ClusterMetrics{
-		NodesMetrics:    nodeMetrics,
-		NodesCapacities: nodeCapacities,
+		NodesMetrics:        nodeMetrics,
+		NodesCapacities:     nodeCapacities,
+		NodesComputedUsages: nodesComputedUsages,
 	}
 
 	return &clusterMetrics, nil

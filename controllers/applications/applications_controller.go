@@ -2,7 +2,9 @@ package applications
 
 import (
 	"cloud-app-hive/domain"
+	"cloud-app-hive/use_cases"
 	validators "cloud-app-hive/validators"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -29,6 +31,7 @@ type ApplicationController struct {
 	getApplicationMetricsUseCase  applications.GetApplicationMetricsUseCase
 	getApplicationStatusUseCase   applications.GetApplicationStatusUseCase
 	fillApplicationsStatusUseCase applications.FillApplicationStatusUseCase
+	getClusterMetricsUseCase      use_cases.GetClusterMetricsUseCase
 }
 
 func NewApplicationController(
@@ -43,6 +46,7 @@ func NewApplicationController(
 	getApplicationMetricsUseCase applications.GetApplicationMetricsUseCase,
 	getApplicationStatusUseCase applications.GetApplicationStatusUseCase,
 	fillApplicationsStatusUseCase applications.FillApplicationStatusUseCase,
+	getClusterMetricsUseCase use_cases.GetClusterMetricsUseCase,
 ) ApplicationController {
 	return ApplicationController{
 		findApplicationsUseCase:       findApplicationsUseCase,
@@ -56,6 +60,7 @@ func NewApplicationController(
 		getApplicationMetricsUseCase:  getApplicationMetricsUseCase,
 		getApplicationStatusUseCase:   getApplicationStatusUseCase,
 		fillApplicationsStatusUseCase: fillApplicationsStatusUseCase,
+		getClusterMetricsUseCase:      getClusterMetricsUseCase,
 	}
 }
 
@@ -112,6 +117,38 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 		})
 		return
 	}
+
+	// Check cluster state before creating application
+	clusterState, err := applicationController.getClusterMetricsUseCase.Execute()
+	if err != nil {
+		fmt.Println("Error while getting cluster state: ", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if clusterState == nil {
+		fmt.Println("Cluster state is nil")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cluster state is nil"})
+		return
+	}
+
+	clusterStateJSON, err := json.Marshal(clusterState)
+	if err != nil {
+		fmt.Println("Error while marshalling cluster state: ", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	fmt.Println("Cluster state: ", string(clusterStateJSON))
+	// Check if cluster is not exceeding its limits
+	if domain.DoesPartOfNodesExceedCPUOrMemoryUsage(
+		0.85,
+		0.8,
+		clusterState.NodesComputedUsages,
+	) {
+		fmt.Println("Cluster is exceeding its limits")
+		c.JSON(http.StatusInsufficientStorage, gin.H{"error": "Cluster is exceeding its limits"})
+		return
+	}
+
 	createApplication := commands.CreateApplication{
 		Name:                      createApplicationRequest.Name,
 		Description:               createApplicationRequest.Description,
