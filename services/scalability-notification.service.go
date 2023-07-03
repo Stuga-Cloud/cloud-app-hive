@@ -50,7 +50,7 @@ func (s *ScalabilityNotificationService) SendApplicationScalabilityRecommandatio
 		memoryLimit,
 	)
 
-	err := s.EmailService.Send(to, subject, textBody, htmlBody)
+	err := s.EmailService.Send(to, subject, textBody, htmlBody, []string{})
 	if err != nil {
 		return false, err
 	}
@@ -134,7 +134,7 @@ func (s *ScalabilityNotificationService) SendApplicationScaledUp(
 		memoryLimit,
 	)
 
-	err := s.EmailService.Send(to, subject, textBody, htmlBody)
+	err := s.EmailService.Send(to, subject, textBody, htmlBody, []string{})
 	if err != nil {
 		return false, err
 	}

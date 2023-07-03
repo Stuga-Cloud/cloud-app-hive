@@ -24,9 +24,16 @@ func NewEmailService() *EmailService {
 	}
 }
 
-func (s *EmailService) Send(to, subject, body string, htmlBody string) error {
+func (s *EmailService) Send(to, subject, body, htmlBody string, carbonCopy []string) error {
 	fromEmail := s.email
 	fromUsername := s.username
+
+	var carbonCopyRecipients mailjet.RecipientsV31
+	for _, email := range carbonCopy {
+		carbonCopyRecipients = append(carbonCopyRecipients, mailjet.RecipientV31{
+			Email: email,
+		})
+	}
 
 	mailjetClient := mailjet.NewMailjetClient(s.publicKey, s.secretKey)
 	messagesInfo := []mailjet.InfoMessagesV31{
@@ -40,6 +47,7 @@ func (s *EmailService) Send(to, subject, body string, htmlBody string) error {
 					Email: to,
 				},
 			},
+			Cc:       &carbonCopyRecipients,
 			Subject:  subject,
 			TextPart: body,
 			HTMLPart: htmlBody,

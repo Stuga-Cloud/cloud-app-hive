@@ -4,6 +4,7 @@ import (
 	"cloud-app-hive/database"
 	"cloud-app-hive/repositories"
 	"cloud-app-hive/services"
+	"cloud-app-hive/use_cases"
 	"cloud-app-hive/use_cases/applications"
 )
 
@@ -50,6 +51,14 @@ func InitSchedulers() {
 		*scalabilityNotificationService,
 		scaleApplicationUseCase,
 	}
-
 	autoScaleScheduler.Launch()
+
+	getClusterMetricsUseCase := use_cases.GetClusterMetricsUseCase{
+		ContainerManagerRepository: containerManager,
+	}
+	notifyAdminOnClusterExceededUsage := NotifyAdminOnClusterExceededUsageScheduler{
+		getClusterMetricsUseCase: getClusterMetricsUseCase,
+		emailService:             *emailService,
+	}
+	notifyAdminOnClusterExceededUsage.Launch()
 }

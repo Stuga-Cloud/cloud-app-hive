@@ -96,6 +96,21 @@ func DoesUsageExceedsLimitAndHowMuchActually(usage string, limit string, accepte
 	return false, actualPercentage
 }
 
+// Map of Kubernetes units to real-life units
+const oneKiloByte = 1024
+
+var realLifeUnitToK8sUnit = map[string]float64{
+	"KB": math.Pow(oneKiloByte, 1),
+	"MB": math.Pow(oneKiloByte, 2),
+	"GB": math.Pow(oneKiloByte, 3),
+	"TB": math.Pow(oneKiloByte, 4),
+	"PB": math.Pow(oneKiloByte, 5),
+	"EB": math.Pow(oneKiloByte, 6),
+	"n":  math.Pow(10, -9),
+	"u":  math.Pow(10, -6),
+	"m":  math.Pow(10, -3),
+}
+
 // Convert to numeric to be able to compare resources usage (for example 16Ki = 16, 16Mi = 16384)
 func ConvertKubernetesResourceValueAndUnitToNumeric(value string) float64 {
 	if len(value) == 0 {
@@ -103,19 +118,6 @@ func ConvertKubernetesResourceValueAndUnitToNumeric(value string) float64 {
 	}
 
 	value, unit := getDigitsAndUnitFromString(value)
-
-	// Map of Kubernetes units to real-life units
-	const oneKiloByte = 1024
-	realLifeUnitToK8sUnit := map[string]float64{
-		"KB": math.Pow(oneKiloByte, 1),
-		"MB": math.Pow(oneKiloByte, 2),
-		"GB": math.Pow(oneKiloByte, 3),
-		"TB": math.Pow(oneKiloByte, 4),
-		"PB": math.Pow(oneKiloByte, 5),
-		"EB": math.Pow(oneKiloByte, 6),
-		"n":  math.Pow(10, -9),
-		"m":  math.Pow(10, -3),
-	}
 
 	// Check if the unit exists in the map
 	if k8sUnit, ok := realLifeUnitToK8sUnit[unit]; ok {
@@ -164,8 +166,8 @@ func ComputeNodesUsagesFromMetricsAndCapacities(nodeMetrics []NodeMetrics, nodeC
 				if err != nil {
 					fmt.Println("Error while converting CPU limit to int: ", err)
 				}
-				cpuCapacity := cpuLimitConverted * 1000
-				cpuUsagePercentage := DivideFloat64s(cpuUsage, float64(cpuCapacity))
+				cpuCapacity := float64(cpuLimitConverted)
+				cpuUsagePercentage := DivideFloat64s(cpuUsage, cpuCapacity)
 
 				memoryUsage := ConvertKubernetesResourceValueAndUnitToNumeric(nodeMetric.ReadableMemoryUsage)
 				memoryCapacity := ConvertKubernetesResourceValueAndUnitToNumeric(nodeCapacity.ReadableMemory)
@@ -179,7 +181,7 @@ func ComputeNodesUsagesFromMetricsAndCapacities(nodeMetrics []NodeMetrics, nodeC
 				storageCapacity := ConvertKubernetesResourceValueAndUnitToNumeric(nodeCapacity.ReadableStorage)
 				storagesUsagePercentage := DivideFloat64s(storageUsage, storageCapacity)
 
-				fmt.Println("Node: ", nodeMetric.Name, " CPU usage: ", cpuUsagePercentage, " Memory usage: ", memoryUsagePercentage, " Storage usage: ", storagesUsagePercentage, " Ephemeral storage usage: ", ephemeralStorageUsagePercentage)
+				// fmt.Println("Node: ", nodeMetric.Name, " CPU usage: ", cpuUsagePercentage, " Memory usage: ", memoryUsagePercentage, " Storage usage: ", storagesUsagePercentage, " Ephemeral storage usage: ", ephemeralStorageUsagePercentage)
 
 				nodeComputedUsages = append(nodeComputedUsages, NodeComputedUsage{
 					Name:                              nodeMetric.Name,
@@ -228,11 +230,11 @@ func doesHalfNodesExceedCPUOrMemoryUsage(nodeMetrics []NodeMetrics, nodeCapaciti
 }
 
 func DoesPartOfNodesExceedCPUOrMemoryUsage(
-	acceptedUsagePercentage float64, // 0.5 => 50%
-	nodesPercentageThatExceed float64, // 0.5 => 50%
+	acceptedUsagePercentage float64, // 50 => 50%
+	nodesPercentageThatExceed float64, // 50 => 50%
 	nodesComputedUsages []NodeComputedUsage,
 ) bool {
-	usageThreshold := acceptedUsagePercentage * 100
+	usageThreshold := acceptedUsagePercentage
 	exceedingNodes := 0
 
 	for _, nodeComputedUsage := range nodesComputedUsages {
@@ -241,11 +243,10 @@ func DoesPartOfNodesExceedCPUOrMemoryUsage(
 		}
 	}
 
-	partOfNodes := float64(len(nodesComputedUsages)) * nodesPercentageThatExceed
+	partOfNodes := float64(len(nodesComputedUsages)) * (nodesPercentageThatExceed / 100)
 	if partOfNodes < 1 {
 		partOfNodes = 1
 	}
-	fmt.Println("Part of nodes: ", partOfNodes, " Exceeding nodes: ", exceedingNodes)
 	if float64(exceedingNodes) >= math.Floor(partOfNodes) {
 		return true
 	}

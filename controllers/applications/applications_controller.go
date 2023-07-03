@@ -4,9 +4,10 @@ import (
 	"cloud-app-hive/domain"
 	"cloud-app-hive/use_cases"
 	validators "cloud-app-hive/validators"
-	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 
 	"cloud-app-hive/controllers/applications/requests"
 	"cloud-app-hive/controllers/applications/responses"
@@ -131,17 +132,32 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 		return
 	}
 
-	clusterStateJSON, err := json.Marshal(clusterState)
-	if err != nil {
-		fmt.Println("Error while marshalling cluster state: ", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+	stopDeployingApplicationWhenClusterNodesUsageIsAbovePercentageStr := os.Getenv("STOP_DEPLOYING_APPLICATION_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE")
+	if stopDeployingApplicationWhenClusterNodesUsageIsAbovePercentageStr == "" {
+		fmt.Println("STOP_DEPLOYING_APPLICATION_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE is not set")
+		panic("STOP_DEPLOYING_APPLICATION_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE is not set")
 	}
-	fmt.Println("Cluster state: ", string(clusterStateJSON))
+	stopDeployingApplicationWhenPercentageOfNodesExceededUsageStr := os.Getenv("STOP_DEPLOYING_APPLICATION_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE")
+	if stopDeployingApplicationWhenPercentageOfNodesExceededUsageStr == "" {
+		fmt.Println("STOP_DEPLOYING_APPLICATION_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE is not set")
+		panic("STOP_DEPLOYING_APPLICATION_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE is not set")
+	}
+
+	stopDeployingApplicationWhenClusterNodesUsageIsAbovePercentage, err := strconv.ParseFloat(stopDeployingApplicationWhenClusterNodesUsageIsAbovePercentageStr, 64)
+	if err != nil {
+		fmt.Println("Error when convert STOP_DEPLOYING_APPLICATION_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE to float64")
+		panic(fmt.Sprintf("Error when convert STOP_DEPLOYING_APPLICATION_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE to float64 during createAndDeployApplicationController : %s", err.Error()))
+	}
+	stopDeployingApplicationWhenPercentageOfNodesExceededUsage, err := strconv.ParseFloat(stopDeployingApplicationWhenPercentageOfNodesExceededUsageStr, 64)
+	if err != nil {
+		fmt.Println("Error when convert STOP_DEPLOYING_APPLICATION_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE to float64")
+		panic(fmt.Sprintf("Error when convert STOP_DEPLOYING_APPLICATION_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE to float64 during createAndDeployApplicationController : %s", err.Error()))
+	}
+
 	// Check if cluster is not exceeding its limits
 	if domain.DoesPartOfNodesExceedCPUOrMemoryUsage(
-		0.85,
-		0.8,
+		stopDeployingApplicationWhenClusterNodesUsageIsAbovePercentage,
+		stopDeployingApplicationWhenPercentageOfNodesExceededUsage,
 		clusterState.NodesComputedUsages,
 	) {
 		fmt.Println("Cluster is exceeding its limits")

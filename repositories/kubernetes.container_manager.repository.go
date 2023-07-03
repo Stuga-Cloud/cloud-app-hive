@@ -427,6 +427,23 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 									v1.ResourceMemory: memoryLimit,
 								},
 							},
+							// LivenessProbe: &v1.Probe{
+							// 	ProbeHandler: v1.ProbeHandler{
+							// 		Exec: &v1.ExecAction{
+							// 			Command: []string{
+							// 				"cat",
+							// 				"/tmp/healthy",
+							// 			},
+							// 		},
+							// 		HTTPGet: &v1.HTTPGetAction{
+							// 			Path: "/health",
+							// 			Port: intstr.FromInt(int(deployApplication.Port)),
+							// 		},
+							// 	},
+							// 	InitialDelaySeconds: 10,
+							// 	PeriodSeconds:       10,
+							// 	FailureThreshold:    3,
+							// },
 						},
 					},
 				},
