@@ -319,12 +319,14 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 	applicationID := c.Param("id")
 	userID := c.Query("userId")
 	if applicationID == "" || userID == "" {
+		fmt.Println("Application ID url param and userId query param are required")
 		c.JSON(http.StatusBadRequest, gin.H{"validation-errors": "Application ID url param and userId query param are required"})
 		return
 	}
 
 	err := requests.ValidateUpdateApplicationRequest(updateApplicationRequest)
 	if err != nil {
+		fmt.Println("Error while validating update application request: ", err)
 		c.JSON(400, gin.H{
 			"validation-errors": err.Error(),
 		})
@@ -333,6 +335,7 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 
 	err = validators.ValidateEmail(updateApplicationRequest.AdministratorEmail)
 	if err != nil {
+		fmt.Println("Error while validating update application request: ", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"validation-errors": fmt.Errorf("error while validating update application request: %w", err).Error(),
 		})
@@ -351,8 +354,13 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 		ScalabilitySpecifications: updateApplicationRequest.ScalabilitySpecifications,
 		AdministratorEmail:        updateApplicationRequest.AdministratorEmail,
 	}
-	application, namespace, err := applicationController.updateApplicationUseCase.Execute(applicationID, updateApplication)
+	application, namespace, err := applicationController.updateApplicationUseCase.Execute(applicationID, updateApplication, userID)
 	if err != nil {
+		if _, ok := err.(*errors.UnauthorizedToAccessNamespaceError); ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		fmt.Println("Error while updating application: ", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   err.Error(),
 			"context": "While updating application in database",

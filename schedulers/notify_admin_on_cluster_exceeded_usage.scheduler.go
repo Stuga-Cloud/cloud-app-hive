@@ -18,16 +18,20 @@ type NotifyAdminOnClusterExceededUsageScheduler struct {
 }
 
 func (scheduler NotifyAdminOnClusterExceededUsageScheduler) Launch() {
-	var lastNotificationSentToAdmin time.Time
 	fmt.Println("Starting 'NotifyAdminOnClusterExceededUsageScheduler' scheduler...")
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				fmt.Println("Recovered from panic during NotifyAdminOnClusterExceededUsageScheduler:", r)
+				// relaunch scheduler
+				scheduler.Launch()
 			}
 		}()
 		repeatInterval := getNotifyAdminOnClusterExceededUsageRepeatInterval()
 		ticker := time.NewTicker(time.Duration(repeatInterval) * time.Second)
+
+		var lastNotificationSentToAdmin time.Time
+
 		for {
 			select {
 			case <-ticker.C:
@@ -75,7 +79,7 @@ func (scheduler NotifyAdminOnClusterExceededUsageScheduler) Launch() {
 						continue
 					}
 					fmt.Println("Cluster state: ", string(clusterStateJSON))
-					if time.Since(lastNotificationSentToAdmin).Hours() > 8 {
+					if time.Since(lastNotificationSentToAdmin).Hours() > 4 {
 						sendClusterExceededUsageEmailToAdmin(scheduler.emailService, clusterMetrics)
 						lastNotificationSentToAdmin = time.Now()
 					} else {

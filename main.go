@@ -43,7 +43,7 @@ func main() {
 
 	initDependencies(router)
 
-	if err := router.Run(":" + os.Getenv("PORT")); err != nil {
+	if err := router.Run(":" + os.Getenv("SERVER_PORT")); err != nil {
 		panic(err)
 	}
 }

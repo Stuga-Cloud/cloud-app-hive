@@ -89,4 +89,4 @@ func (applicationScalabilitySpecifications ApplicationScalabilitySpecifications)
 	return json.Marshal(applicationScalabilitySpecifications)
 }
 
-const MaxNumberOfReplicas = 4
+const MaxNumberOfReplicas = 3

@@ -293,7 +293,7 @@ func fillApplicationsJSON(apps []domain.Application, r GORMApplicationRepository
 
 // HorizontalScaleUp scales up an application horizontally
 func (r GORMApplicationRepository) HorizontalScaleUp(applicationID string) (*domain.Application, error) {
-	app := domain.Application{}
+	app := &domain.Application{}
 	result := r.Database.Find(&app, domain.Application{
 		ID: applicationID,
 	}).Limit(1)
@@ -327,7 +327,9 @@ func (r GORMApplicationRepository) HorizontalScaleUp(applicationID string) (*dom
 		return nil, fmt.Errorf("error while updating application: %w", result.Error)
 	}
 
-	return &app, nil
+	app, err = fillApplicationJSONFields(app, r)
+
+	return app, nil
 }
 
 // HorizontalScaleDown scales down an application horizontally

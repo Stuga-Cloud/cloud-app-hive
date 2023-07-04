@@ -35,7 +35,7 @@ func InitSchedulers() {
 	emailService := services.NewEmailService()
 	scalabilityNotificationService := services.NewScalabilityNotificationService(*emailService)
 
-	manualScaleScheduler := NotifyApplicationScalingRecommendationScheduler{
+	manualScaleScheduler := NotifyApplicationManualScalingRecommendationScheduler{
 		findManualScalingApplicationsUseCase,
 		getApplicationMetricsUseCase,
 		*scalabilityNotificationService,
@@ -44,6 +44,7 @@ func InitSchedulers() {
 
 	scaleApplicationUseCase := applications.ScaleApplicationUseCase{
 		ApplicationRepository: applicationRepository,
+		ContainerManager:      containerManager,
 	}
 	autoScaleScheduler := AutoScaleApplicationsAndNotifyScheduler{
 		findAutoScalingApplicationsUseCase,

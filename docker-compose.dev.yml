@@ -11,7 +11,7 @@ services:
     volumes:
       - .:/app
     environment:
-      - PORT=${PORT}
+      - SERVER_PORT=${SERVER_PORT}
       - API_KEY=${API_KEY}
       - DOMAIN_NAME=${DOMAIN_NAME}
       - MYSQL_USER=${MYSQL_USER}

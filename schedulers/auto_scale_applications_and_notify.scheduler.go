@@ -21,16 +21,20 @@ type AutoScaleApplicationsAndNotifyScheduler struct {
 func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 	fmt.Println("Starting 'AutoScaleApplicationsAndNotifyScheduler' scheduler...")
 	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				fmt.Println("Recovered from panic during 'AutoScaleApplicationsAndNotifyScheduler':", r)
-			}
-		}()
 		repeatInterval := getAutoScaleAppSchedulerRepeatInterval()
 		ticker := time.NewTicker(time.Duration(repeatInterval) * time.Second)
+
+		lastNotifiedMaxReplicasDatetimeByApplication := make(map[string]time.Time)
+
 		for {
 			select {
 			case <-ticker.C:
+				defer func() {
+					if r := recover(); r != nil {
+						fmt.Println("Recovered from panic during 'AutoScaleApplicationsAndNotifyScheduler':", r)
+					}
+				}()
+
 				// 1. get all applications that are auto scaling
 				foundApplications, err := scheduler.findAutoScalingApplicationsUseCase.Execute()
 				if err != nil {
@@ -39,6 +43,7 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 				}
 				if len(foundApplications) == 0 {
 					fmt.Println("No auto scaling applications found")
+					continue
 				}
 
 				// 2. parallelize checking each application through the container manager with goroutines
@@ -61,9 +66,9 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 							return
 						}
 
-						for _, metric := range metrics {
-							fmt.Println("Metrics of application", application.Name, ":", metric.String())
-						}
+						// for _, metric := range metrics {
+						// 	fmt.Println("Metrics of application", application.Name, ":", metric.String())
+						// }
 
 						var compareActualUsageToAcceptedPercentageResults []domain.CompareActualUsageToAcceptedPercentageResult
 						acceptedCPUUsageThreshold := application.ScalabilitySpecifications.Data().CpuUsagePercentageThreshold
@@ -93,6 +98,34 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 
 						for _, compareActualUsageToAcceptedPercentageResult := range compareActualUsageToAcceptedPercentageResults {
 							if compareActualUsageToAcceptedPercentageResult.OneOfTheUsageExceedsAcceptedPercentage() {
+								if application.ScalabilitySpecifications.Data().Replicas >= domain.MaxNumberOfReplicas {
+									fmt.Println("Auto application", application.Name, "has reached the maximum number of replicas")
+
+									if time.Since(lastNotifiedMaxReplicasDatetimeByApplication[application.ID]).Hours() < 4 {
+										fmt.Println("Auto application", application.Name, "has exceeded accepted percentages, but notification email was sent less than 4 hours ago")
+										return
+									}
+									success, err := scheduler.scalabilityNotificationService.SendApplicationCannotBeScaledUp(
+										application.AdministratorEmail,
+										application.Name,
+										application.Namespace.Name,
+										compareActualUsageToAcceptedPercentageResult,
+										application.ContainerSpecifications,
+										application.ScalabilitySpecifications.Data(),
+									)
+									if err != nil {
+										fmt.Println("error when try to send application cannot be scaled up more notification mail :", err.Error())
+										panic("Error when try to send application cannot be scaled up more notification mail during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
+									}
+									if success {
+										fmt.Println("Application", application.Name, "cannot be scaled up more, email sent to", application.AdministratorEmail)
+
+										lastNotifiedMaxReplicasDatetimeByApplication[application.ID] = time.Now()
+									} else {
+										fmt.Println("Application", application.Name, "cannot be scaled up more, but email not sent to", application.AdministratorEmail)
+									}
+									return
+								}
 								// 5. scale up/down the application if one of the usage exceeds the accepted percentage
 								_, err := scheduler.scaleApplicationUseCase.Execute(application.ID, commands.UpdateApplication{}, applications.HorizontalUpScaling)
 								if err != nil {
@@ -114,13 +147,14 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 									panic("Error when try to send application scalability notification mail during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
 								}
 								if success {
-									fmt.Println("Application", application.Name, "has exceeded accepted percentages, email sent to", application.AdministratorEmail)
+									fmt.Println("Auto application", application.Name, "has exceeded accepted percentages scaled up, email sent to", application.AdministratorEmail)
 								} else {
-									fmt.Println("Application", application.Name, "has exceeded accepted percentages, but email not sent to", application.AdministratorEmail)
+									fmt.Println("Auto application", application.Name, "has exceeded accepted percentages scaled up, but email not sent to", application.AdministratorEmail)
 								}
-							} else {
-								fmt.Println("Application", application.Name, "has not exceeded accepted percentages")
 							}
+							// else {
+							// 	fmt.Println("Application", application.Name, "has not exceeded accepted percentages")
+							// }
 						}
 
 						done <- true

@@ -380,6 +380,8 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 		}
 		replicas = deployApplication.ScalabilitySpecifications.Replicas
 	}
+	// json, _ := json.Marshal(deployApplication)
+	// fmt.Println("Deploying application with replicas : ", string(json))
 	rawCpuLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.CPULimit.Val, deployApplication.ContainerSpecifications.CPULimit.Unit)
 	rawMemoryLimit := fmt.Sprintf("%d%s", deployApplication.ContainerSpecifications.MemoryLimit.Val, deployApplication.ContainerSpecifications.MemoryLimit.Unit)
 	cpuLimit := resource.MustParse(domain.ConvertReadableHumanValueAndUnitToK8sResource(rawCpuLimit))

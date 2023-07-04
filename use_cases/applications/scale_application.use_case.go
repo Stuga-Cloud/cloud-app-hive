@@ -10,6 +10,7 @@ import (
 
 type ScaleApplicationUseCase struct {
 	ApplicationRepository repositories.ApplicationRepository
+	ContainerManager      repositories.ContainerManagerRepository
 }
 
 type ScalingType string
@@ -43,9 +44,25 @@ func (scaleApplicationUseCase ScaleApplicationUseCase) Execute(applicationID str
 	// if scalingType == VerticalDownScaling {
 	// 	updatedApplication, err = scaleApplicationUseCase.ApplicationRepository.VerticalScaleDown(applicationID)
 	// }
-
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while scaling application calling application repository: %w", err)
+	}
+
+	applyApplication := commands.ApplyApplication{
+		Name:                      updatedApplication.Name,
+		Image:                     updatedApplication.Image,
+		Registry:                  updatedApplication.Registry,
+		Namespace:                 updatedApplication.Name,
+		Port:                      updatedApplication.Port,
+		ApplicationType:           updatedApplication.ApplicationType,
+		EnvironmentVariables:      *updatedApplication.EnvironmentVariables,
+		Secrets:                   *updatedApplication.Secrets,
+		ContainerSpecifications:   *updatedApplication.ContainerSpecifications,
+		ScalabilitySpecifications: updatedApplication.ScalabilitySpecifications.Data(),
+	}
+	err = scaleApplicationUseCase.ContainerManager.ApplyApplication(applyApplication)
+	if err != nil {
+		return nil, fmt.Errorf("error while scaling application calling container manager: %w", err)
 	}
 
 	return updatedApplication, nil
