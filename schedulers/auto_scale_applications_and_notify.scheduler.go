@@ -21,7 +21,11 @@ type AutoScaleApplicationsAndNotifyScheduler struct {
 func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 	fmt.Println("Starting 'AutoScaleApplicationsAndNotifyScheduler' scheduler...")
 	go func() {
-		repeatInterval := getAutoScaleAppSchedulerRepeatInterval()
+		repeatInterval, err := getAutoScaleAppSchedulerRepeatInterval()
+		if err != nil {
+			fmt.Println("Error when try to get auto scale app scheduler repeat interval :", err.Error())
+			return
+		}
 		ticker := time.NewTicker(time.Duration(repeatInterval) * time.Second)
 
 		lastNotifiedMaxReplicasDatetimeByApplication := make(map[string]time.Time)
@@ -29,17 +33,11 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 		for {
 			select {
 			case <-ticker.C:
-				defer func() {
-					if r := recover(); r != nil {
-						fmt.Println("Recovered from panic during 'AutoScaleApplicationsAndNotifyScheduler':", r)
-					}
-				}()
-
 				// 1. get all applications that are auto scaling
 				foundApplications, err := scheduler.findAutoScalingApplicationsUseCase.Execute()
 				if err != nil {
 					fmt.Println("error when try to get auto scaling applications :", err.Error())
-					panic("Error when try to get auto scaling applications during AutoScaleApplicationsAndNotifyScheduler : " + err.Error())
+					return
 				}
 				if len(foundApplications) == 0 {
 					fmt.Println("No auto scaling applications found")
@@ -115,7 +113,7 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 									)
 									if err != nil {
 										fmt.Println("error when try to send application cannot be scaled up more notification mail :", err.Error())
-										panic("Error when try to send application cannot be scaled up more notification mail during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
+										return
 									}
 									if success {
 										fmt.Println("Application", application.Name, "cannot be scaled up more, email sent to", application.AdministratorEmail)
@@ -129,8 +127,8 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 								// 5. scale up/down the application if one of the usage exceeds the accepted percentage
 								_, err := scheduler.scaleApplicationUseCase.Execute(application.ID, commands.UpdateApplication{}, applications.HorizontalUpScaling)
 								if err != nil {
-									fmt.Println("error when try to scale application :", err.Error())
-									panic("Error when try to scale application during AutoScaleApplicationsAndNotifyScheduler : " + err.Error())
+									fmt.Println("error when try to scale application during AutoScaleApplicationsAndNotifyScheduler :", err.Error())
+									return
 								}
 
 								// 6. send email to the application administrator to notify him about the scaling
@@ -143,8 +141,8 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 									application.ScalabilitySpecifications.Data(),
 								)
 								if err != nil {
-									fmt.Println("error when try to send application scalability notification mail :", err.Error())
-									panic("Error when try to send application scalability notification mail during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
+									fmt.Println("Error when try to send application scalability notification mail during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
+									return
 								}
 								if success {
 									fmt.Println("Auto application", application.Name, "has exceeded accepted percentages scaled up, email sent to", application.AdministratorEmail)
@@ -168,18 +166,17 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 	}()
 }
 
-func getAutoScaleAppSchedulerRepeatInterval() int {
-	const defaultRepeatInterval = 1
+func getAutoScaleAppSchedulerRepeatInterval() (int, error) {
 	var repeatInterval int
 	schedulerScaleApplicationAndNotifyInSeconds := os.Getenv("SCHEDULER_SCALE_APPLICATION_AND_NOTIFY_IN_SECONDS")
 	if schedulerScaleApplicationAndNotifyInSeconds == "" {
-		fmt.Println("SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS is not set, using default value")
-		repeatInterval = defaultRepeatInterval
+		fmt.Println("SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS is not set")
+		return 0, fmt.Errorf("SCHEDULER_SCALE_APPLICATION_AND_NOTIFY_IN_SECONDS is not set")
 	}
 	repeatInterval, err := strconv.Atoi(schedulerScaleApplicationAndNotifyInSeconds)
 	if err != nil {
 		fmt.Println("Error when convert SCHEDULER_SCALE_APPLICATION_AND_NOTIFY_IN_SECONDS to int")
-		panic(fmt.Sprintf("Error when convert SCHEDULER_SCALE_APPLICATION_AND_NOTIFY_IN_SECONDS to int during AutoScaleApplicationsAndNotifyScheduler : %s", err.Error()))
+		return 0, fmt.Errorf("error when convert SCHEDULER_SCALE_APPLICATION_AND_NOTIFY_IN_SECONDS to int : %s", err.Error())
 	}
-	return repeatInterval
+	return repeatInterval, nil
 }

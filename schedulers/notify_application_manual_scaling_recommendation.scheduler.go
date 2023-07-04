@@ -20,7 +20,11 @@ type NotifyApplicationManualScalingRecommendationScheduler struct {
 func (scheduler NotifyApplicationManualScalingRecommendationScheduler) Launch() {
 	fmt.Println("Starting 'NotifyApplicationManualScalingRecommendationScheduler' scheduler...")
 	go func() {
-		repeatInterval := getManualScaleAppSchedulerRepeatInterval()
+		repeatInterval, err := getManualScaleAppSchedulerRepeatInterval()
+		if err != nil {
+			fmt.Println("Error when try to get notify application manual scaling recommendation scheduler repeat interval :", err.Error())
+			return
+		}
 		ticker := time.NewTicker(time.Duration(repeatInterval) * time.Second)
 
 		lastNotifiedDatetimeByApplication := make(map[string]time.Time)
@@ -28,17 +32,11 @@ func (scheduler NotifyApplicationManualScalingRecommendationScheduler) Launch() 
 		for {
 			select {
 			case <-ticker.C:
-				defer func() {
-					if r := recover(); r != nil {
-						fmt.Println("Recovered from panic during NotifyApplicationManualScalingRecommendationScheduler:", r)
-					}
-				}()
-
 				// 1. get all applications that are manual scaling
 				foundApplications, err := scheduler.findManualScalingApplicationsUseCase.Execute()
 				if err != nil {
-					fmt.Println("error when try to get manual scaling applications :", err.Error())
-					panic("Error when try to get manual scaling applications during NotifyApplicationManualScalingRecommendationScheduler : " + err.Error())
+					fmt.Println("error when try to get manual scaling applications during NotifyApplicationManualScalingRecommendationScheduler :", err.Error())
+					continue
 				}
 				if len(foundApplications) == 0 {
 					fmt.Println("No manual scaling applications found")
@@ -124,8 +122,8 @@ func (scheduler NotifyApplicationManualScalingRecommendationScheduler) Launch() 
 										application.ScalabilitySpecifications.Data(),
 									)
 									if err != nil {
-										fmt.Println("error when try to send application wont be able to be scaled up notification mail :", err.Error())
-										panic("Error when try to send application wont be able to be scaled up notification mail during NotifyApplicationManualScalingRecommendationScheduler : " + err.Error())
+										fmt.Println("error when try to send application wont be able to be scaled up notification mail during NotifyApplicationManualScalingRecommendationScheduler :", err.Error())
+										return
 									}
 									if success {
 										fmt.Println("Manual application", application.Name, "cannot won't be able to be scaled up, email sent to", application.AdministratorEmail)
@@ -146,8 +144,8 @@ func (scheduler NotifyApplicationManualScalingRecommendationScheduler) Launch() 
 									application.ScalabilitySpecifications.Data(),
 								)
 								if err != nil {
-									fmt.Println("error when try to send application scalability recommandation mail :", err.Error())
-									panic("Error when try to send application scalability recommandation mail during NotifyApplicationManualScalingRecommendationScheduler : " + err.Error())
+									fmt.Println("error when try to send application scalability recommandation mail during NotifyApplicationManualScalingRecommendationScheduler :", err.Error())
+									return
 								}
 								if success {
 									fmt.Println("Manual application", application.Name, "has exceeded accepted percentages, email sent to", application.AdministratorEmail)
@@ -173,18 +171,17 @@ func (scheduler NotifyApplicationManualScalingRecommendationScheduler) Launch() 
 	}()
 }
 
-func getManualScaleAppSchedulerRepeatInterval() int {
-	const defaultRepeatInterval = 1
+func getManualScaleAppSchedulerRepeatInterval() (int, error) {
 	var repeatInterval int
 	SchedulerRecommendApplicationScalingInSeconds := os.Getenv("SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS")
 	if SchedulerRecommendApplicationScalingInSeconds == "" {
-		fmt.Println("SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS is not set, using default value")
-		repeatInterval = defaultRepeatInterval
+		fmt.Println("SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS is not set")
+		return 0, fmt.Errorf("SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS is not set")
 	}
 	repeatInterval, err := strconv.Atoi(SchedulerRecommendApplicationScalingInSeconds)
 	if err != nil {
-		fmt.Println("Error when convert SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS to int")
-		panic(fmt.Sprintf("Error when convert SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS to int during NotifyApplicationManualScalingRecommendationScheduler : %s", err.Error()))
+		fmt.Println("Error when convert SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS to int during NotifyApplicationManualScalingRecommendationScheduler :", err.Error())
+		return 0, fmt.Errorf("error when convert SCHEDULER_RECOMMEND_APPLICATION_SCALING_IN_SECONDS to int during NotifyApplicationManualScalingRecommendationScheduler : %s", err.Error())
 	}
-	return repeatInterval
+	return repeatInterval, nil
 }

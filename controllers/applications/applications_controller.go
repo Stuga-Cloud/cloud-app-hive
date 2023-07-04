@@ -135,23 +135,26 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 	stopDeployingApplicationWhenClusterNodesUsageIsAbovePercentageStr := os.Getenv("STOP_DEPLOYING_APPLICATION_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE")
 	if stopDeployingApplicationWhenClusterNodesUsageIsAbovePercentageStr == "" {
 		fmt.Println("STOP_DEPLOYING_APPLICATION_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE is not set")
-		panic("STOP_DEPLOYING_APPLICATION_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE is not set")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "STOP_DEPLOYING_APPLICATION_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE is not set"})
+		return
 	}
 	stopDeployingApplicationWhenPercentageOfNodesExceededUsageStr := os.Getenv("STOP_DEPLOYING_APPLICATION_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE")
 	if stopDeployingApplicationWhenPercentageOfNodesExceededUsageStr == "" {
 		fmt.Println("STOP_DEPLOYING_APPLICATION_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE is not set")
-		panic("STOP_DEPLOYING_APPLICATION_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE is not set")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "STOP_DEPLOYING_APPLICATION_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE is not set"})
 	}
 
 	stopDeployingApplicationWhenClusterNodesUsageIsAbovePercentage, err := strconv.ParseFloat(stopDeployingApplicationWhenClusterNodesUsageIsAbovePercentageStr, 64)
 	if err != nil {
 		fmt.Println("Error when convert STOP_DEPLOYING_APPLICATION_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE to float64")
-		panic(fmt.Sprintf("Error when convert STOP_DEPLOYING_APPLICATION_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE to float64 during createAndDeployApplicationController : %s", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error when convert STOP_DEPLOYING_APPLICATION_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE to float64"})
+		return
+
 	}
 	stopDeployingApplicationWhenPercentageOfNodesExceededUsage, err := strconv.ParseFloat(stopDeployingApplicationWhenPercentageOfNodesExceededUsageStr, 64)
 	if err != nil {
 		fmt.Println("Error when convert STOP_DEPLOYING_APPLICATION_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE to float64")
-		panic(fmt.Sprintf("Error when convert STOP_DEPLOYING_APPLICATION_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE to float64 during createAndDeployApplicationController : %s", err.Error()))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error when convert STOP_DEPLOYING_APPLICATION_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE to float64"})
 	}
 
 	// Check if cluster is not exceeding its limits

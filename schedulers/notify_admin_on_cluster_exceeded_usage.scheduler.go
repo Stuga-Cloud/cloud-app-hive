@@ -20,14 +20,11 @@ type NotifyAdminOnClusterExceededUsageScheduler struct {
 func (scheduler NotifyAdminOnClusterExceededUsageScheduler) Launch() {
 	fmt.Println("Starting 'NotifyAdminOnClusterExceededUsageScheduler' scheduler...")
 	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				fmt.Println("Recovered from panic during NotifyAdminOnClusterExceededUsageScheduler:", r)
-				// relaunch scheduler
-				scheduler.Launch()
-			}
-		}()
-		repeatInterval := getNotifyAdminOnClusterExceededUsageRepeatInterval()
+		repeatInterval, err := getNotifyAdminOnClusterExceededUsageRepeatInterval()
+		if err != nil {
+			fmt.Println("Error when try to get notify admin on cluster exceeded usage scheduler repeat interval :", err.Error())
+			return
+		}
 		ticker := time.NewTicker(time.Duration(repeatInterval) * time.Second)
 
 		var lastNotificationSentToAdmin time.Time
@@ -38,7 +35,7 @@ func (scheduler NotifyAdminOnClusterExceededUsageScheduler) Launch() {
 				clusterMetrics, err := scheduler.getClusterMetricsUseCase.Execute()
 				if err != nil {
 					fmt.Println("error when try to get cluster metrics during NotifyAdminOnClusterExceededUsageScheduler :", err.Error())
-					panic("Error when try to get cluster metrics during NotifyAdminOnClusterExceededUsageScheduler : " + err.Error())
+					continue
 				}
 				if clusterMetrics == nil {
 					fmt.Println("No cluster metrics found")
@@ -48,23 +45,23 @@ func (scheduler NotifyAdminOnClusterExceededUsageScheduler) Launch() {
 				notifyAdminWhenClusterNodesUsageIsAbovePercentageStr := os.Getenv("NOTIFY_ADMIN_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE")
 				if notifyAdminWhenClusterNodesUsageIsAbovePercentageStr == "" {
 					fmt.Println("NOTIFY_ADMIN_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE is not set")
-					panic("NOTIFY_ADMIN_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE is not set")
+					continue
 				}
 				notifyAdminWhenPercentageOfNodesExceedsUsageStr := os.Getenv("NOTIFY_ADMIN_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE")
 				if notifyAdminWhenPercentageOfNodesExceedsUsageStr == "" {
 					fmt.Println("NOTIFY_ADMIN_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE is not set")
-					panic("NOTIFY_ADMIN_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE is not set")
+					continue
 				}
 
 				notifyAdminWhenClusterNodesUsageIsAbovePercentage, err := strconv.ParseFloat(notifyAdminWhenClusterNodesUsageIsAbovePercentageStr, 64)
 				if err != nil {
-					fmt.Println("Error when convert NOTIFY_ADMIN_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE to float64")
-					panic(fmt.Sprintf("Error when convert NOTIFY_ADMIN_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE to float64 during NotifyAdminOnClusterExceededUsageScheduler : %s", err.Error()))
+					fmt.Println("Error when convert NOTIFY_ADMIN_WHEN_CLUSTER_NODES_USAGE_IS_ABOVE_PERCENTAGE to float64 during NotifyAdminOnClusterExceededUsageScheduler : ", err.Error())
+					continue
 				}
 				notifyAdminWhenPercentageOfNodesExceedsUsage, err := strconv.ParseFloat(notifyAdminWhenPercentageOfNodesExceedsUsageStr, 64)
 				if err != nil {
-					fmt.Println("Error when convert NOTIFY_ADMIN_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE to float64")
-					panic(fmt.Sprintf("Error when convert NOTIFY_ADMIN_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE to float64 during NotifyAdminOnClusterExceededUsageScheduler : %s", err.Error()))
+					fmt.Printf("Error when convert NOTIFY_ADMIN_WHEN_PERCENTAGE_OF_NODES_EXCEEDED_USAGE to float64 during NotifyAdminOnClusterExceededUsageScheduler : %s\n", err.Error())
+					continue
 				}
 
 				if domain.DoesPartOfNodesExceedCPUOrMemoryUsage(
@@ -96,27 +93,32 @@ func (scheduler NotifyAdminOnClusterExceededUsageScheduler) Launch() {
 func findCorrespondingNodeMetricsAndCapacities(
 	nodeName string,
 	clusterMetrics *domain.ClusterMetrics,
-) (domain.NodeMetrics, domain.NodeCapacities) {
+) (domain.NodeMetrics, domain.NodeCapacities, error) {
 	for _, nodeMetrics := range clusterMetrics.NodesMetrics {
 		if nodeMetrics.Name == nodeName {
 			for _, nodeCapacities := range clusterMetrics.NodesCapacities {
 				if nodeCapacities.Name == nodeName {
-					return nodeMetrics, nodeCapacities
+					return nodeMetrics, nodeCapacities, nil
 				}
 			}
 		}
 	}
-	panic(fmt.Sprintf("No corresponding node metrics and capacities found for node %s", nodeName))
+
+	return domain.NodeMetrics{}, domain.NodeCapacities{}, fmt.Errorf("no corresponding node metrics and capacities found for node %s", nodeName)
 }
 
-func sendClusterExceededUsageEmailToAdmin(emailService services.EmailService, clusterMetrics *domain.ClusterMetrics) {
+func sendClusterExceededUsageEmailToAdmin(emailService services.EmailService, clusterMetrics *domain.ClusterMetrics) error {
 	subject := "Cluster is exceeding its limits"
 	body := "Cluster is exceeding its limits. Here are cluster metrics : \n"
 	for _, nodeComputedUsage := range clusterMetrics.NodesComputedUsages {
-		nodeMetrics, nodeCapacities := findCorrespondingNodeMetricsAndCapacities(
+		nodeMetrics, nodeCapacities, err := findCorrespondingNodeMetricsAndCapacities(
 			nodeComputedUsage.Name,
 			clusterMetrics,
 		)
+		if err != nil {
+			fmt.Println("Error when try to find corresponding node metrics and capacities :", err.Error())
+			return fmt.Errorf("error when try to find corresponding node metrics and capacities : %s", err.Error())
+		}
 
 		body += fmt.Sprintf(
 			"Node %s\n",
@@ -136,17 +138,21 @@ func sendClusterExceededUsageEmailToAdmin(emailService services.EmailService, cl
 		)
 	}
 
-	htmlBody := fmt.Sprintf(
+	htmlBody :=
 		`
 		<p>Cluster is exceeding its limits. Here are cluster metrics : </p>
 		<ul>
-		`,
-	)
+		`
+
 	for _, nodeComputedUsage := range clusterMetrics.NodesComputedUsages {
-		nodeMetrics, nodeCapacities := findCorrespondingNodeMetricsAndCapacities(
+		nodeMetrics, nodeCapacities, err := findCorrespondingNodeMetricsAndCapacities(
 			nodeComputedUsage.Name,
 			clusterMetrics,
 		)
+		if err != nil {
+			fmt.Println("Error when try to find corresponding node metrics and capacities :", err.Error())
+			return fmt.Errorf("error when try to find corresponding node metrics and capacities : %s", err.Error())
+		}
 
 		htmlBody += fmt.Sprintf(
 			`
@@ -169,14 +175,15 @@ func sendClusterExceededUsageEmailToAdmin(emailService services.EmailService, cl
 
 	adminEmail := os.Getenv("ADMIN_EMAIL")
 	if adminEmail == "" {
-		panic("ADMIN_EMAIL is not set")
+		fmt.Println("ADMIN_EMAIL is not set")
+		return fmt.Errorf("ADMIN_EMAIL is not set")
 	}
-	copyCarbonCopyEmails := []string{}
 	copyCarbonEmails := os.Getenv("ADMIN_EMAIL_COPY_CARBON")
 	if copyCarbonEmails == "" {
-		panic("ADMIN_EMAIL_COPY_CARBON is not set")
+		fmt.Println("ADMIN_EMAIL_COPY_CARBON is not set")
+		return fmt.Errorf("ADMIN_EMAIL_COPY_CARBON is not set")
 	}
-	copyCarbonCopyEmails = strings.Split(copyCarbonEmails, ",")
+	copyCarbonCopyEmails := strings.Split(copyCarbonEmails, ",")
 
 	fmt.Printf("Sending %s email to admin %s and copy carbon copy emails %v\n", subject, adminEmail, copyCarbonCopyEmails)
 	err := emailService.Send(
@@ -187,23 +194,24 @@ func sendClusterExceededUsageEmailToAdmin(emailService services.EmailService, cl
 		copyCarbonCopyEmails,
 	)
 	if err != nil {
-		fmt.Println("error when try to send application scalability notification mail :", err.Error())
-		panic("Error when try to send application scalability notification mail during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
+		fmt.Println("error when try to send application scalability notification mail during NotifyApplicationScalingRecommendationScheduler :", err.Error())
+		return fmt.Errorf("error when try to send application scalability notification mail during NotifyApplicationScalingRecommendationScheduler : %s", err.Error())
 	}
+
+	return nil
 }
 
-func getNotifyAdminOnClusterExceededUsageRepeatInterval() int {
-	const defaultRepeatInterval = 1
+func getNotifyAdminOnClusterExceededUsageRepeatInterval() (int, error) {
 	var repeatInterval int
 	SchedulerRecommendApplicationScalingInSeconds := os.Getenv("SCHEDULER_NOTIFY_ADMIN_ON_CLUSTER_EXCEEDED_USAGE_IN_SECONDS")
 	if SchedulerRecommendApplicationScalingInSeconds == "" {
-		fmt.Println("SCHEDULER_NOTIFY_ADMIN_ON_CLUSTER_EXCEEDED_USAGE_IN_SECONDS is not set, using default value")
-		repeatInterval = defaultRepeatInterval
+		fmt.Println("SCHEDULER_NOTIFY_ADMIN_ON_CLUSTER_EXCEEDED_USAGE_IN_SECONDS is not set")
+		return 0, fmt.Errorf("SCHEDULER_NOTIFY_ADMIN_ON_CLUSTER_EXCEEDED_USAGE_IN_SECONDS is not set")
 	}
 	repeatInterval, err := strconv.Atoi(SchedulerRecommendApplicationScalingInSeconds)
 	if err != nil {
 		fmt.Println("Error when convert SCHEDULER_NOTIFY_ADMIN_ON_CLUSTER_EXCEEDED_USAGE_IN_SECONDS to int")
-		panic(fmt.Sprintf("Error when convert SCHEDULER_NOTIFY_ADMIN_ON_CLUSTER_EXCEEDED_USAGE_IN_SECONDS to int during NotifyApplicationScalingRecommendationScheduler : %s", err.Error()))
+		return 0, fmt.Errorf("error when convert SCHEDULER_NOTIFY_ADMIN_ON_CLUSTER_EXCEEDED_USAGE_IN_SECONDS to int during NotifyApplicationScalingRecommendationScheduler : %s", err.Error())
 	}
-	return repeatInterval
+	return repeatInterval, nil
 }

@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/mailjet/mailjet-apiv3-go/v4"
@@ -11,7 +10,7 @@ import (
 type EmailService struct {
 	email     string
 	username  string
-	publicKey string
+	apiKey string
 	secretKey string
 }
 
@@ -19,7 +18,7 @@ func NewEmailService() *EmailService {
 	return &EmailService{
 		email:     os.Getenv("SMTP_EMAIL"),
 		username:  os.Getenv("SMTP_USERNAME"),
-		publicKey: os.Getenv("MAIL_JET_API_KEY"),
+		apiKey: os.Getenv("MAIL_JET_API_KEY"),
 		secretKey: os.Getenv("MAIL_JET_SECRET_KEY"),
 	}
 }
@@ -35,7 +34,7 @@ func (s *EmailService) Send(to, subject, body, htmlBody string, carbonCopy []str
 		})
 	}
 
-	mailjetClient := mailjet.NewMailjetClient(s.publicKey, s.secretKey)
+	mailjetClient := mailjet.NewMailjetClient(s.apiKey, s.secretKey)
 	messagesInfo := []mailjet.InfoMessagesV31{
 		{
 			From: &mailjet.RecipientV31{
@@ -56,7 +55,7 @@ func (s *EmailService) Send(to, subject, body, htmlBody string, carbonCopy []str
 	messages := mailjet.MessagesV31{Info: messagesInfo}
 	res, err := mailjetClient.SendMailV31(&messages)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("Error sending email to %s, about %s: %s\n", to, subject, err.Error())
 		return err
 	}
 
