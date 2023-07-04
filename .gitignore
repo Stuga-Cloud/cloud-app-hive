@@ -4,3 +4,4 @@ database/data
 .idea
 assets/kubeconfig
 */.DS_Store
+deployments

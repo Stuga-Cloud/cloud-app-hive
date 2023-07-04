@@ -39,9 +39,11 @@ func (containerManager KubernetesContainerManagerRepository) connectToKubernetes
 
 	decodedContent, err := base64.StdEncoding.DecodeString(kubeconfigContent)
 	if err != nil {
-		return nil, &customErrors.ContainerManagerConnectionError{
-			Message: fmt.Sprintf("Error while decoding KUBECONFIG_CONTENT : %s", err.Error()),
-		}
+		// fmt.Println("Error while decoding KUBECONFIG_CONTENT, maybe its not stored as base64 encoded string : ", err.Error())
+		decodedContent = []byte(kubeconfigContent)
+		// return nil, &customErrors.ContainerManagerConnectionError{
+		// 	Message: fmt.Sprintf("Error while decoding KUBECONFIG_CONTENT : %s", err.Error()),
+		// }
 	}
 
 	config, err := clientcmd.RESTConfigFromKubeConfig(decodedContent)
@@ -137,9 +139,11 @@ func (containerManager KubernetesContainerManagerRepository) connectToKubernetes
 
 	decodedContent, err := base64.StdEncoding.DecodeString(kubeconfigContent)
 	if err != nil {
-		return nil, &customErrors.ContainerManagerConnectionError{
-			Message: fmt.Sprintf("Error while decoding KUBECONFIG_CONTENT : %s", err.Error()),
-		}
+		// fmt.Println("Error while decoding KUBECONFIG_CONTENT, maybe its not stored as base64 encoded string : ", err.Error())
+		decodedContent = []byte(kubeconfigContent)
+		// return nil, &customErrors.ContainerManagerConnectionError{
+		// 	Message: fmt.Sprintf("Error while decoding KUBECONFIG_CONTENT : %s", err.Error()),
+		// }
 	}
 
 	config, err := clientcmd.RESTConfigFromKubeConfig(decodedContent)
