@@ -7,6 +7,7 @@ import (
 	"cloud-app-hive/domain/commands"
 	"encoding/base64"
 	"encoding/json"
+	"sort"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -915,6 +916,18 @@ func (containerManager KubernetesContainerManagerRepository) DeleteNamespace(nam
 		}
 	}
 
+	// Namespace can be not created yet
+	_, err = clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil
+		}
+		return &customErrors.ContainerManagerNamespaceRemoveError{
+			Message:   fmt.Sprintf("Error getting namespace while deleting namespace : %s", err.Error()),
+			Namespace: namespace,
+		}
+	}
+
 	err = clientset.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
 	if err != nil {
 		return &customErrors.ContainerManagerNamespaceRemoveError{
@@ -1004,18 +1017,21 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 	}
 
 	// Order the deploymentConditions slice if there are different last update times
-	// isDifferentLastUpdateTimes := false
-	// for i := 0; i < len(deploymentConditions)-1; i++ {
-	// 	if deploymentConditions[i].LastUpdateTime != deploymentConditions[i+1].LastUpdateTime {
-	// 		isDifferentLastUpdateTimes = true
-	// 		break
-	// 	}
-	// }
-	// if len(deploymentConditions) > 1 && isDifferentLastUpdateTimes {
-	// 	sort.Slice(deploymentConditions, func(i, j int) bool {
-	// 		return deploymentConditions[i].LastUpdateTime > deploymentConditions[j].LastUpdateTime
-	// 	})
-	// }
+	isDifferentLastUpdateTimes := false
+	for i := 0; i < len(deploymentConditions)-1; i++ {
+		if deploymentConditions[i].LastUpdateTime != deploymentConditions[i+1].LastUpdateTime {
+			isDifferentLastUpdateTimes = true
+			break
+		}
+	}
+	if len(deploymentConditions) > 1 && isDifferentLastUpdateTimes {
+		sort.Slice(deploymentConditions, func(i, j int) bool {
+			if deploymentConditions[i].LastUpdateTime == deploymentConditions[j].LastUpdateTime {
+				return deploymentConditions[i].LastTransitionTime > deploymentConditions[j].LastTransitionTime
+			}
+			return deploymentConditions[i].LastUpdateTime > deploymentConditions[j].LastUpdateTime
+		})
+	}
 
 	// REVERSE the deploymentConditions slice
 	//for i := len(deploymentConditions)/2 - 1; i >= 0; i-- {

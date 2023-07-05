@@ -39,7 +39,7 @@ func (scheduler NotifyApplicationManualScalingRecommendationScheduler) Launch() 
 					continue
 				}
 				if len(foundApplications) == 0 {
-					fmt.Println("No manual scaling applications found")
+					// fmt.Println("No manual scaling applications found")
 					continue
 				}
 

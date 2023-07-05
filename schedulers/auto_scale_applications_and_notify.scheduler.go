@@ -40,7 +40,7 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 					return
 				}
 				if len(foundApplications) == 0 {
-					fmt.Println("No auto scaling applications found")
+					// fmt.Println("No auto scaling applications found")
 					continue
 				}
 
