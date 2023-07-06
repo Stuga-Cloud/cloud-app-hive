@@ -45,6 +45,7 @@ func (s *ScalabilityNotificationService) SendApplicationScalabilityRecommandatio
 		results,
 		cpuLimit,
 		memoryLimit,
+		scalabilitySpecifications.Replicas,
 	)
 
 	err := s.EmailService.Send(to, subject, textBody, htmlBody, []string{})
@@ -63,6 +64,7 @@ func (s *ScalabilityNotificationService) GetManualScalingRecommendationBody(
 	results []domain.CompareActualUsageToAcceptedPercentageResult,
 	cpuLimit string,
 	memoryLimit string,
+	replicas int32,
 ) (string, string) {
 	body := "The application '" + applicationName + "' in namespace '" + namespace + "' is recommended to be scaled up.\n\n"
 	body += "The configured thresholds are " + fmt.Sprintf("%.2f", cpuConfiguredThreshold) + "% of CPU resources and " + fmt.Sprintf("%.2f", memoryConfiguredThreshold) + "% of memory resources.\n\n"
@@ -75,7 +77,8 @@ func (s *ScalabilityNotificationService) GetManualScalingRecommendationBody(
 	// and " + fmt.Sprintf("%.2f", result.EphemeralStorageUsageResult.ActualUsage) + "% of its ephemeral storage resources."
 	body += "The application is configured to be limited at " +
 		cpuLimit + " of CPU resources and " +
-		memoryLimit + " of memory resources"
+		memoryLimit + " of memory resources and " +
+		fmt.Sprintf("%d", replicas) + " replicas."
 
 	// fmt.Sprintf(
 	// 	"%d%s", specifications.EphemeralStorageLimit.Val, specifications.EphemeralStorageLimit.Unit,
@@ -95,7 +98,8 @@ func (s *ScalabilityNotificationService) GetManualScalingRecommendationBody(
 
 	htmlBody += "<p>The application is configured to be limited at " +
 		cpuLimit + " of CPU resources and " +
-		memoryLimit + " of memory resources"
+		memoryLimit + " of memory resources and " +
+		fmt.Sprintf("%d", replicas) + " replicas."
 
 	htmlBody += "<br><br>"
 	htmlBody += "Best regards,<br>"
@@ -287,7 +291,8 @@ func (s *ScalabilityNotificationService) GetAutoScalingBody(
 	// and " + fmt.Sprintf("%.2f", result.EphemeralStorageUsageResult.ActualUsage) + "% of its ephemeral storage resources."
 	body += "The application is now configured to be limited at " +
 		cpuLimit + " of CPU resources and " +
-		memoryLimit + " of memory resources"
+		memoryLimit + " of memory resources and " +
+		fmt.Sprintf("%d", replicas) + " replicas."
 
 	// fmt.Sprintf(
 	// 	"%d%s", specifications.EphemeralStorageLimit.Val, specifications.EphemeralStorageLimit.Unit,
@@ -308,7 +313,8 @@ func (s *ScalabilityNotificationService) GetAutoScalingBody(
 
 	htmlBody += "<p>The application is configured to be limited at " +
 		cpuLimit + " of CPU resources and " +
-		memoryLimit + " of memory resources"
+		memoryLimit + " of memory resources and " +
+		fmt.Sprintf("%d", replicas) + " replicas."
 
 	htmlBody += "<br><br>"
 	htmlBody += "Best regards,<br>"
