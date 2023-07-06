@@ -166,13 +166,7 @@ func (applicationContainerSpecifications ApplicationContainerSpecifications) Val
 
 	// Verify that CPU limit is contained in available choices
 	if applicationContainerSpecifications.CPULimit != nil {
-		isCPULimitContainedInAvailableChoices := false
-		for _, cpuLimitChoice := range ApplicationCPULimitChoice {
-			if applicationContainerSpecifications.CPULimit.Val == cpuLimitChoice.Value && applicationContainerSpecifications.CPULimit.Unit == cpuLimitChoice.Unit {
-				isCPULimitContainedInAvailableChoices = true
-				break
-			}
-		}
+		isCPULimitContainedInAvailableChoices := IsCPULimitChoiceValid(*applicationContainerSpecifications.CPULimit)
 		if !isCPULimitContainedInAvailableChoices {
 			return customErrors.NewInvalidApplicationContainerSpecificationsError(
 				fmt.Sprintf(
@@ -185,13 +179,7 @@ func (applicationContainerSpecifications ApplicationContainerSpecifications) Val
 
 	// Verify that memory limit is contained in available choices
 	if applicationContainerSpecifications.MemoryLimit != nil {
-		isMemoryLimitContainedInAvailableChoices := false
-		for _, memoryLimitChoice := range ApplicationMemoryLimitChoice {
-			if applicationContainerSpecifications.MemoryLimit.Val == memoryLimitChoice.Value && applicationContainerSpecifications.MemoryLimit.Unit == memoryLimitChoice.Unit {
-				isMemoryLimitContainedInAvailableChoices = true
-				break
-			}
-		}
+		isMemoryLimitContainedInAvailableChoices := IsMemoryLimitChoiceValid(*applicationContainerSpecifications.MemoryLimit)
 		if !isMemoryLimitContainedInAvailableChoices {
 			return customErrors.NewInvalidApplicationContainerSpecificationsError(
 				fmt.Sprintf(
@@ -208,7 +196,7 @@ func (applicationContainerSpecifications ApplicationContainerSpecifications) Val
 func (applicationContainerSpecifications ApplicationContainerSpecifications) SetDefaultValues() {
 	if applicationContainerSpecifications.CPULimit == nil {
 		applicationContainerSpecifications.CPULimit = &ContainerCpuLimit{
-			Val:  50,
+			Val:  70,
 			Unit: mCPU,
 		}
 	}
@@ -250,4 +238,54 @@ var ApplicationMemoryLimitChoice = []ApplicationMemoryLimit{
 	// {Value: 2048, Unit: MB},
 	// {Value: 4096, Unit: MB},
 	// {Value: 8192, Unit: MB},
+}
+
+func IsCPULimitChoiceValid(cpuLimitChoice ContainerCpuLimit) bool {
+	for _, cpuLimit := range ApplicationCPULimitChoice {
+		if cpuLimit.Value == cpuLimitChoice.Val && cpuLimit.Unit == cpuLimitChoice.Unit {
+			return true
+		}
+	}
+	return false
+}
+
+func IsMemoryLimitChoiceValid(memoryLimitChoice ContainerMemoryLimit) bool {
+	for _, memoryLimit := range ApplicationMemoryLimitChoice {
+		if memoryLimit.Value == memoryLimitChoice.Val && memoryLimit.Unit == memoryLimitChoice.Unit {
+			return true
+		}
+	}
+	return false
+}
+
+func IsAtMaxCPULimit(cpuLimit ContainerCpuLimit) bool {
+	return cpuLimit.Val == ApplicationCPULimitChoice[len(ApplicationCPULimitChoice)-1].Value &&
+		cpuLimit.Unit == ApplicationCPULimitChoice[len(ApplicationCPULimitChoice)-1].Unit
+}
+
+func IsAtMaxMemoryLimit(memoryLimit ContainerMemoryLimit) bool {
+	return memoryLimit.Val == ApplicationMemoryLimitChoice[len(ApplicationMemoryLimitChoice)-1].Value &&
+		memoryLimit.Unit == ApplicationMemoryLimitChoice[len(ApplicationMemoryLimitChoice)-1].Unit
+}
+
+func NextCPULimit(cpuLimit ContainerCpuLimit) ApplicationCPULimit {
+	for i, cpuLimitChoice := range ApplicationCPULimitChoice {
+		if cpuLimitChoice.Value == cpuLimit.Val && cpuLimitChoice.Unit == cpuLimit.Unit {
+			if i+1 < len(ApplicationCPULimitChoice) {
+				return ApplicationCPULimitChoice[i+1]
+			}
+		}
+	}
+	return ApplicationCPULimitChoice[len(ApplicationCPULimitChoice)-1]
+}
+
+func NextMemoryLimit(memoryLimit ContainerMemoryLimit) ApplicationMemoryLimit {
+	for i, memoryLimitChoice := range ApplicationMemoryLimitChoice {
+		if memoryLimitChoice.Value == memoryLimit.Val && memoryLimitChoice.Unit == memoryLimit.Unit {
+			if i+1 < len(ApplicationMemoryLimitChoice) {
+				return ApplicationMemoryLimitChoice[i+1]
+			}
+		}
+	}
+	return ApplicationMemoryLimitChoice[len(ApplicationMemoryLimitChoice)-1]
 }

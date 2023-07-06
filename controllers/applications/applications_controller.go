@@ -204,7 +204,7 @@ func (applicationController ApplicationController) CreateAndDeployApplicationCon
 		ApplicationType:           application.ApplicationType,
 		EnvironmentVariables:      *application.EnvironmentVariables,
 		Secrets:                   *application.Secrets,
-		ContainerSpecifications:   *application.ContainerSpecifications,
+		ContainerSpecifications:   application.ContainerSpecifications.Data(),
 		ScalabilitySpecifications: application.ScalabilitySpecifications.Data(),
 	}
 	err = deployApplicationUseCase.Execute(applyApplication)
@@ -381,7 +381,7 @@ func (applicationController ApplicationController) UpdateApplicationByNameAndNam
 		ApplicationType:           application.ApplicationType,
 		EnvironmentVariables:      *application.EnvironmentVariables,
 		Secrets:                   *application.Secrets,
-		ContainerSpecifications:   *application.ContainerSpecifications,
+		ContainerSpecifications:   application.ContainerSpecifications.Data(),
 		ScalabilitySpecifications: application.ScalabilitySpecifications.Data(),
 	}
 	err = applicationController.deployApplicationUseCase.Execute(applyApplication)

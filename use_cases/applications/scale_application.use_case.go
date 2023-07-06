@@ -5,6 +5,7 @@ import (
 
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/commands"
+	"cloud-app-hive/domain/errors"
 	"cloud-app-hive/domain/repositories"
 )
 
@@ -38,13 +39,16 @@ func (scaleApplicationUseCase ScaleApplicationUseCase) Execute(applicationID str
 	if scalingType == HorizontalDownScaling {
 		updatedApplication, err = scaleApplicationUseCase.ApplicationRepository.HorizontalScaleDown(applicationID)
 	}
-	// if scalingType == VerticalUpScaling {
-	// 	updatedApplication, err = scaleApplicationUseCase.ApplicationRepository.VerticalScaleUp(applicationID)
-	// }
+	if scalingType == VerticalUpScaling {
+		updatedApplication, err = scaleApplicationUseCase.ApplicationRepository.VerticalScaleUp(applicationID)
+	}
 	// if scalingType == VerticalDownScaling {
 	// 	updatedApplication, err = scaleApplicationUseCase.ApplicationRepository.VerticalScaleDown(applicationID)
 	// }
 	if err != nil {
+		if _, ok := err.(*errors.InvalidApplicationCannotVerticallyScaleBecauseMaxSpecsError); ok {
+			return nil, err
+		}
 		return nil, fmt.Errorf("error while scaling application calling application repository: %w", err)
 	}
 
@@ -57,7 +61,7 @@ func (scaleApplicationUseCase ScaleApplicationUseCase) Execute(applicationID str
 		ApplicationType:           updatedApplication.ApplicationType,
 		EnvironmentVariables:      *updatedApplication.EnvironmentVariables,
 		Secrets:                   *updatedApplication.Secrets,
-		ContainerSpecifications:   *updatedApplication.ContainerSpecifications,
+		ContainerSpecifications:   updatedApplication.ContainerSpecifications.Data(),
 		ScalabilitySpecifications: updatedApplication.ScalabilitySpecifications.Data(),
 	}
 	err = scaleApplicationUseCase.ContainerManager.ApplyApplication(applyApplication)

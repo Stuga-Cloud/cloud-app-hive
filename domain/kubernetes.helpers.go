@@ -54,7 +54,7 @@ func ConvertReadableHumanValueAndUnitToK8sResource(value string) string {
 	}
 
 	value, unit := getDigitsAndUnitFromString(value)
-	println("Value & unit: ", value, unit)
+	// println("Value & unit: ", value, unit)
 
 	// Map of Kubernetes units to real-life units
 	realLifeUnitToK8sUnit := map[string]string{
@@ -83,6 +83,7 @@ func ConvertReadableHumanValueAndUnitToK8sResource(value string) string {
 func DoesUsageExceedsLimitAndHowMuchActually(usage string, limit string, acceptedUsagePercentage float64) (bool, float64) {
 	usageNumeric := ConvertKubernetesResourceValueAndUnitToNumeric(usage)
 	limitNumeric := ConvertKubernetesResourceValueAndUnitToNumeric(limit)
+	// fmt.Printf("Comparing usage: %f and limit: %f from usage: %s and limit: %s\n", usageNumeric, limitNumeric, usage, limit)
 
 	if limitNumeric == 0 {
 		return false, 0
@@ -182,6 +183,7 @@ func ComputeNodesUsagesFromMetricsAndCapacities(nodeMetrics []NodeMetrics, nodeC
 				storagesUsagePercentage := DivideFloat64s(storageUsage, storageCapacity)
 
 				// fmt.Println("Node: ", nodeMetric.Name, " CPU usage: ", cpuUsagePercentage, " Memory usage: ", memoryUsagePercentage, " Storage usage: ", storagesUsagePercentage, " Ephemeral storage usage: ", ephemeralStorageUsagePercentage)
+				// fmt.Println("Real CPU usage: ", nodeMetric.CPUUsage, " Real memory usage: ", nodeMetric.MemoryUsage, " Real storage usage: ", nodeMetric.StorageUsage, " Real ephemeral storage usage: ", nodeMetric.EphemeralStorageUsage)
 
 				nodeComputedUsages = append(nodeComputedUsages, NodeComputedUsage{
 					Name:                              nodeMetric.Name,

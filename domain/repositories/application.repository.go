@@ -44,7 +44,7 @@ type ApplicationRepository interface {
 	HorizontalScaleDown(applicationID string) (*domain.Application, error)
 
 	// // VerticalScaleUp scales up an application vertically
-	// VerticalScaleUp(applicationID string) (*domain.Application, error)
+	VerticalScaleUp(applicationID string) (*domain.Application, error)
 
 	// // VerticalScaleDown scales down an application vertically
 	// VerticalScaleDown(applicationID string) (*domain.Application, error)

@@ -29,7 +29,7 @@ type Application struct {
 	ApplicationType           ApplicationType                                           `json:"applicationType" gorm:"type:enum('SINGLE_INSTANCE', 'LOAD_BALANCED');default:'SINGLE_INSTANCE'"`
 	EnvironmentVariables      *ApplicationEnvironmentVariables                          `json:"environmentVariables" gorm:"type:json"`
 	Secrets                   *ApplicationSecrets                                       `json:"secrets" gorm:"type:json"`
-	ContainerSpecifications   *ApplicationContainerSpecifications                       `json:"containerSpecifications" gorm:"type:json"`
+	ContainerSpecifications   *datatypes.JSONType[ApplicationContainerSpecifications]   `json:"containerSpecifications" gorm:"type:json"`
 	ScalabilitySpecifications *datatypes.JSONType[ApplicationScalabilitySpecifications] `json:"scalabilitySpecifications" gorm:"type:json"`
 	AdministratorEmail        string                                                    `json:"administratorEmail" gorm:"size:320;not null"`
 	Status                    *ApplicationDeploymentStatus                              `json:"status"`

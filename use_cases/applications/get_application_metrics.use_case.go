@@ -20,6 +20,7 @@ func (getApplicationMetricsUseCase GetApplicationMetricsUseCase) Execute(applica
 	readableMetrics := make([]domain.ApplicationMetrics, len(metrics))
 	for i, podMetrics := range metrics {
 		readableMetrics[i] = podMetrics.WithRealLifeReadableUnits()
+		// fmt.Printf("CPU usage: %s and CPU limit: %s\n", readableMetrics[i].CPUUsage, readableMetrics[i].MaxCPUUsage)
 		_, cpuUsageInPercentage := domain.DoesUsageExceedsLimitAndHowMuchActually(readableMetrics[i].CPUUsage, readableMetrics[i].MaxCPUUsage, 0)
 		_, memoryUsageInPercentage := domain.DoesUsageExceedsLimitAndHowMuchActually(readableMetrics[i].MemoryUsage, readableMetrics[i].MaxMemoryUsage, 0)
 		readableMetrics[i].CPUUsageInPercentage = cpuUsageInPercentage
