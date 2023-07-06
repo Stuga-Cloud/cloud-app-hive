@@ -7,7 +7,6 @@ import (
 	"cloud-app-hive/domain/commands"
 	"encoding/base64"
 	"encoding/json"
-	"sort"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -666,18 +665,19 @@ func (containerManager KubernetesContainerManagerRepository) applyIngress(client
 			Namespace: applicationNamespace,
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/rewrite-target": "/",
+				"cert-manager.io/cluster-issuer":             "letsencrypt",
 			},
 		},
 		Spec: v13.IngressSpec{
 			IngressClassName: func() *string { s := "nginx"; return &s }(),
-			// TLS: []v13.IngressTLS{
-			// 	{
-			// 		Hosts: []string{
-			// 			fmt.Sprintf("%s.%s.%s", applicationName, applicationNamespace, domainName),
-			// 		},
-			// 		SecretName: fmt.Sprintf("%s-tls", applicationName),
-			// 	},
-			// },
+			TLS: []v13.IngressTLS{
+				{
+					Hosts: []string{
+						fmt.Sprintf("%s.%s.%s", applicationName, applicationNamespace, domainName),
+					},
+					SecretName: "letsencrypt-account-key",
+				},
+			},
 			Rules: []v13.IngressRule{
 				{
 					Host: fmt.Sprintf("%s.%s.%s", applicationName, applicationNamespace, domainName),
@@ -1017,21 +1017,21 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 	}
 
 	// Order the deploymentConditions slice if there are different last update times
-	isDifferentLastUpdateTimes := false
-	for i := 0; i < len(deploymentConditions)-1; i++ {
-		if deploymentConditions[i].LastUpdateTime != deploymentConditions[i+1].LastUpdateTime {
-			isDifferentLastUpdateTimes = true
-			break
-		}
-	}
-	if len(deploymentConditions) > 1 && isDifferentLastUpdateTimes {
-		sort.Slice(deploymentConditions, func(i, j int) bool {
-			if deploymentConditions[i].LastUpdateTime == deploymentConditions[j].LastUpdateTime {
-				return deploymentConditions[i].LastTransitionTime > deploymentConditions[j].LastTransitionTime
-			}
-			return deploymentConditions[i].LastUpdateTime > deploymentConditions[j].LastUpdateTime
-		})
-	}
+	// isDifferentLastUpdateTimes := false
+	// for i := 0; i < len(deploymentConditions)-1; i++ {
+	// 	if deploymentConditions[i].LastUpdateTime != deploymentConditions[i+1].LastUpdateTime {
+	// 		isDifferentLastUpdateTimes = true
+	// 		break
+	// 	}
+	// }
+	// if len(deploymentConditions) > 1 && isDifferentLastUpdateTimes {
+	// 	sort.Slice(deploymentConditions, func(i, j int) bool {
+	// 		if deploymentConditions[i].LastUpdateTime == deploymentConditions[j].LastUpdateTime {
+	// 			return deploymentConditions[i].LastTransitionTime > deploymentConditions[j].LastTransitionTime
+	// 		}
+	// 		return deploymentConditions[i].LastUpdateTime > deploymentConditions[j].LastUpdateTime
+	// 	})
+	// }
 
 	// REVERSE the deploymentConditions slice
 	//for i := len(deploymentConditions)/2 - 1; i >= 0; i-- {
