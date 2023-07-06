@@ -352,7 +352,7 @@ func (r GORMApplicationRepository) HorizontalScaleDown(applicationID string) (*d
 	newNumberOfReplicas := app.ScalabilitySpecifications.Data().Replicas - 1
 
 	if newNumberOfReplicas <= 0 {
-		return nil, fmt.Errorf("error while validating scalability specifications when scaling up: %w", err)
+		return nil, fmt.Errorf("application is already at minimum number of replicas")
 	}
 
 	scalabilitySpecs := datatypes.NewJSONType(domain.ApplicationScalabilitySpecifications{

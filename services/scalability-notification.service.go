@@ -97,7 +97,7 @@ func (s *ScalabilityNotificationService) GetManualScalingRecommendationBody(
 		cpuLimit + " of CPU resources and " +
 		memoryLimit + " of memory resources"
 
-	htmlBody += "\n\n"
+	htmlBody += "<br><br>"
 	htmlBody += "Best regards,<br>"
 	htmlBody += "The Stuga Cloud Team"
 
@@ -143,7 +143,7 @@ func (s *ScalabilityNotificationService) GetCannotScaleApplicationVerticallyBody
 		memoryLimit + " of memory resources and " +
 		fmt.Sprintf("%d", domain.MaxNumberOfReplicas) + " replicas."
 
-	htmlBody += "\n\n"
+	htmlBody += "<br><br>"
 	htmlBody += "Best regards,<br>"
 	htmlBody += "The Stuga Cloud Team"
 

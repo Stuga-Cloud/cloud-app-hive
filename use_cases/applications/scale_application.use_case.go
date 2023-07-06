@@ -56,7 +56,7 @@ func (scaleApplicationUseCase ScaleApplicationUseCase) Execute(applicationID str
 		Name:                      updatedApplication.Name,
 		Image:                     updatedApplication.Image,
 		Registry:                  updatedApplication.Registry,
-		Namespace:                 updatedApplication.Name,
+		Namespace:                 updatedApplication.Namespace.Name,
 		Port:                      updatedApplication.Port,
 		ApplicationType:           updatedApplication.ApplicationType,
 		EnvironmentVariables:      *updatedApplication.EnvironmentVariables,

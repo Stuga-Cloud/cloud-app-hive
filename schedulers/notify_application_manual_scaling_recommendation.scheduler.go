@@ -93,71 +93,80 @@ func (scheduler NotifyApplicationManualScalingRecommendationScheduler) Launch() 
 							compareActualUsageToAcceptedPercentageResults = append(compareActualUsageToAcceptedPercentageResults, compareActualUsageToAcceptedPercentageResult)
 						}
 
+						oneOfTheUsageExceedsAcceptedPercentage := false
 						for _, compareActualUsageToAcceptedPercentageResult := range compareActualUsageToAcceptedPercentageResults {
 							// 3. if the application is using more than 80% of its resources, recommend to scale up
 							// 4. if the application is using less than 20% of its resources, recommend to scale down
 							// 5. send email notification to the application owner
 							if compareActualUsageToAcceptedPercentageResult.OneOfTheUsageExceedsAcceptedPercentage() {
-								// If since only 4 hours
-								if time.Since(lastNotifiedDatetimeByApplication[application.ID]).Hours() < 4 {
-									fmt.Println("Manual application", application.Name, "has exceeded accepted percentages, but last notification was less than 4 hours ago")
-									return
-								}
+								oneOfTheUsageExceedsAcceptedPercentage = true
+								break
+							}
+						}
 
-								// jsonApplication, err := json.Marshal(application)
-								// if err != nil {
-								// 	fmt.Println("error when try to marshal application to json during NotifyApplicationManualScalingRecommendationScheduler :", err.Error())
-								// 	done <- true
-								// 	return
-								// }
-								// fmt.Println("Application", string(jsonApplication))
-								if application.ScalabilitySpecifications.Data().Replicas >= domain.MaxNumberOfReplicas {
-									fmt.Println("Manual application", application.Name, "has reached the maximum number of replicas")
-									success, err := scheduler.scalabilityNotificationService.SendApplicationCannotBeScaledUp(
-										application.AdministratorEmail,
-										application.Name,
-										application.Namespace.Name,
-										compareActualUsageToAcceptedPercentageResult,
-										application.ContainerSpecifications,
-										application.ScalabilitySpecifications.Data(),
-									)
-									if err != nil {
-										fmt.Println("error when try to send application wont be able to be scaled up notification mail during NotifyApplicationManualScalingRecommendationScheduler :", err.Error())
-										return
-									}
-									if success {
-										fmt.Println("Manual application", application.Name, "cannot won't be able to be scaled up, email sent to", application.AdministratorEmail)
+						if oneOfTheUsageExceedsAcceptedPercentage {
+							// If since only 4 hours
+							if time.Since(lastNotifiedDatetimeByApplication[application.ID]).Hours() < 4 {
+								fmt.Println("Manual application", application.Name, "has exceeded accepted percentages, but last notification was less than 4 hours ago")
+								done <- true
+								return
+							}
 
-										lastNotifiedDatetimeByApplication[application.ID] = time.Now()
-									} else {
-										fmt.Println("Manual application", application.Name, "cannot won't be able to be scaled up, but email not sent to", application.AdministratorEmail)
-									}
-									return
-								}
-
-								success, err := scheduler.scalabilityNotificationService.SendApplicationScalabilityRecommandationMail(
+							// jsonApplication, err := json.Marshal(application)
+							//
+							//	if err != nil {
+							//		fmt.Println("error when try to marshal application to json during NotifyApplicationManualScalingRecommendationScheduler :", err.Error())
+							//		done <- true
+							//		return
+							//	}
+							//
+							// fmt.Println("Application", string(jsonApplication))
+							if application.ScalabilitySpecifications.Data().Replicas >= domain.MaxNumberOfReplicas && domain.IsAtMaxCPULimit(*application.ContainerSpecifications.Data().CPULimit) && domain.IsAtMaxMemoryLimit(*application.ContainerSpecifications.Data().MemoryLimit) {
+								fmt.Println("Manual application", application.Name, "has reached the maximum number of replicas, and is at max cpu and memory limit, email not sent to", application.AdministratorEmail)
+								success, err := scheduler.scalabilityNotificationService.SendApplicationCannotBeScaledUp(
 									application.AdministratorEmail,
 									application.Name,
 									application.Namespace.Name,
-									compareActualUsageToAcceptedPercentageResult,
-									application.ContainerSpecifications,
+									compareActualUsageToAcceptedPercentageResults,
+									application.ContainerSpecifications.Data(),
 									application.ScalabilitySpecifications.Data(),
 								)
 								if err != nil {
-									fmt.Println("error when try to send application scalability recommandation mail during NotifyApplicationManualScalingRecommendationScheduler :", err.Error())
+									fmt.Println("error when try to send application wont be able to be scaled up notification mail during NotifyApplicationManualScalingRecommendationScheduler :", err.Error())
+									done <- true
 									return
 								}
 								if success {
-									fmt.Println("Manual application", application.Name, "has exceeded accepted percentages, email sent to", application.AdministratorEmail)
+									fmt.Println("Manual application", application.Name, "cannot won't be able to be scaled up, email sent to", application.AdministratorEmail)
 
 									lastNotifiedDatetimeByApplication[application.ID] = time.Now()
 								} else {
-									fmt.Println("Manual application", application.Name, "has exceeded accepted percentages, but email not sent to", application.AdministratorEmail)
+									fmt.Println("Manual application", application.Name, "cannot won't be able to be scaled up, but email not sent to", application.AdministratorEmail)
 								}
+								done <- true
+								return
 							}
-							// else {
-							// 	fmt.Println("Application", application.Name, "has not exceeded accepted percentages")
-							// }
+
+							success, err := scheduler.scalabilityNotificationService.SendApplicationScalabilityRecommandationMail(
+								application.AdministratorEmail,
+								application.Name,
+								application.Namespace.Name,
+								compareActualUsageToAcceptedPercentageResults,
+								application.ContainerSpecifications.Data(),
+								application.ScalabilitySpecifications.Data(),
+							)
+							if err != nil {
+								fmt.Println("error when try to send application scalability recommandation mail during NotifyApplicationManualScalingRecommendationScheduler :", err.Error())
+								done <- true
+								return
+							}
+							if success {
+								fmt.Println("Manual application", application.Name, "has exceeded accepted percentages, email sent to", application.AdministratorEmail)
+
+								lastNotifiedDatetimeByApplication[application.ID] = time.Now()
+							} else {
+								fmt.Println("Manual application", application.Name, "has exceeded accepted percentages, but email not sent to", application.AdministratorEmail)
+							}
 						}
 
 						done <- true
