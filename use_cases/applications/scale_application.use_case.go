@@ -53,14 +53,14 @@ func (scaleApplicationUseCase ScaleApplicationUseCase) Execute(applicationID str
 	}
 
 	applyApplication := commands.ApplyApplication{
-		Name:                      updatedApplication.Name,
-		Image:                     updatedApplication.Image,
-		Registry:                  updatedApplication.Registry,
-		Namespace:                 updatedApplication.Namespace.Name,
-		Port:                      updatedApplication.Port,
-		ApplicationType:           updatedApplication.ApplicationType,
-		EnvironmentVariables:      *updatedApplication.EnvironmentVariables,
-		Secrets:                   *updatedApplication.Secrets,
+		Name:                      foundApplicationByID.Name,
+		Image:                     foundApplicationByID.Image,
+		Registry:                  foundApplicationByID.Registry,
+		Namespace:                 foundApplicationByID.Namespace.Name,
+		Port:                      foundApplicationByID.Port,
+		ApplicationType:           foundApplicationByID.ApplicationType,
+		EnvironmentVariables:      *foundApplicationByID.EnvironmentVariables,
+		Secrets:                   *foundApplicationByID.Secrets,
 		ContainerSpecifications:   updatedApplication.ContainerSpecifications.Data(),
 		ScalabilitySpecifications: updatedApplication.ScalabilitySpecifications.Data(),
 	}

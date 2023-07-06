@@ -166,6 +166,9 @@ func (containerManager KubernetesContainerManagerRepository) connectToKubernetes
 func (containerManager KubernetesContainerManagerRepository) ApplyApplication(
 	applyApplication commands.ApplyApplication,
 ) error {
+	jsonedApplyApplication, _ := json.Marshal(applyApplication)
+	fmt.Println("Applying application : ", string(jsonedApplyApplication))
+
 	clientset, err := containerManager.connectToKubernetesAPI()
 	if err != nil {
 		return err
@@ -433,6 +436,8 @@ func (containerManager KubernetesContainerManagerRepository) applyDeployment(cli
 									v1.ResourceMemory: memoryLimit,
 								},
 							},
+							ImagePullPolicy: v1.PullAlways,
+
 							// LivenessProbe: &v1.Probe{
 							// 	ProbeHandler: v1.ProbeHandler{
 							// 		Exec: &v1.ExecAction{
@@ -916,7 +921,7 @@ func (containerManager KubernetesContainerManagerRepository) DeleteNamespace(nam
 		}
 	}
 
-	// Namespace can be not created yet
+	// Namespace can be not be found if it has already been deleted
 	_, err = clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
