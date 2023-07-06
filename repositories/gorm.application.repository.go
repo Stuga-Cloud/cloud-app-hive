@@ -3,6 +3,7 @@ package repositories
 import (
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/commands"
+	"cloud-app-hive/domain/errors"
 	"encoding/json"
 	"fmt"
 
@@ -107,6 +108,7 @@ func (r GORMApplicationRepository) FindByNamespaceIDAndName(namespaceID string, 
 
 // Create creates a new application
 func (r GORMApplicationRepository) Create(createApplication commands.CreateApplication) (*domain.Application, error) {
+	containerSpecs := datatypes.NewJSONType(createApplication.ContainerSpecifications)
 	scalabilitySpecs := datatypes.NewJSONType(createApplication.ScalabilitySpecifications)
 	app := domain.Application{
 		ID:                      uuid.New().String(),
@@ -121,7 +123,7 @@ func (r GORMApplicationRepository) Create(createApplication commands.CreateAppli
 		ApplicationType:         createApplication.ApplicationType,
 		EnvironmentVariables:    &createApplication.EnvironmentVariables,
 		Secrets:                 &createApplication.Secrets,
-		ContainerSpecifications: &createApplication.ContainerSpecifications,
+		ContainerSpecifications: &containerSpecs,
 		// ScalabilitySpecifications: &createApplication.ScalabilitySpecifications,
 		// repositories/gorm.application.repository.go:272:34: cannot use scalabilitySpecifications (variable of type *domain.ApplicationScalabilitySpecifications) as *datatypes.JSONType[domain.ApplicationScalabilitySpecifications] value in assignment
 		ScalabilitySpecifications: &scalabilitySpecs,
@@ -154,7 +156,8 @@ func (r GORMApplicationRepository) Update(applicationID string, application comm
 	app.ApplicationType = application.ApplicationType
 	app.EnvironmentVariables = &application.EnvironmentVariables
 	app.Secrets = &application.Secrets
-	app.ContainerSpecifications = &application.ContainerSpecifications
+	containerSpecs := datatypes.NewJSONType(application.ContainerSpecifications)
+	app.ContainerSpecifications = &containerSpecs
 	scalabilitySpecs := datatypes.NewJSONType(application.ScalabilitySpecifications)
 	app.ScalabilitySpecifications = &scalabilitySpecs
 	app.AdministratorEmail = application.AdministratorEmail
@@ -271,7 +274,8 @@ func fillApplicationJSONFields(app *domain.Application, r GORMApplicationReposit
 		}
 	}
 
-	app.ContainerSpecifications = containerSpecifications
+	containerSpecs := datatypes.NewJSONType(*containerSpecifications)
+	app.ContainerSpecifications = &containerSpecs
 	scalabilitySpecs := datatypes.NewJSONType(*scalabilitySpecifications)
 	app.ScalabilitySpecifications = &scalabilitySpecs
 	app.EnvironmentVariables = environmentVariables
@@ -306,8 +310,8 @@ func (r GORMApplicationRepository) HorizontalScaleUp(applicationID string) (*dom
 
 	newNumberOfReplicas := app.ScalabilitySpecifications.Data().Replicas + 1
 
-	if err := app.ScalabilitySpecifications.Data().Validate(); err != nil {
-		return nil, fmt.Errorf("error while validating scalability specifications when scaling up: %w", err)
+	if newNumberOfReplicas > domain.MaxNumberOfReplicas {
+		return nil, fmt.Errorf("application is already at maximum number of replicas")
 	}
 
 	scalabilitySpecs := datatypes.NewJSONType(domain.ApplicationScalabilitySpecifications{
@@ -347,7 +351,7 @@ func (r GORMApplicationRepository) HorizontalScaleDown(applicationID string) (*d
 
 	newNumberOfReplicas := app.ScalabilitySpecifications.Data().Replicas - 1
 
-	if err := app.ScalabilitySpecifications.Data().Validate(); err != nil {
+	if newNumberOfReplicas <= 0 {
 		return nil, fmt.Errorf("error while validating scalability specifications when scaling up: %w", err)
 	}
 
@@ -372,9 +376,53 @@ func (r GORMApplicationRepository) HorizontalScaleDown(applicationID string) (*d
 }
 
 // // VerticalScaleUp scales up an application vertically
-// func (r GORMApplicationRepository) VerticalScaleUp(applicationID string) (*domain.Application, error) {
+func (r GORMApplicationRepository) VerticalScaleUp(applicationID string) (*domain.Application, error) {
+	app := domain.Application{}
+	result := r.Database.Find(&app, domain.Application{
+		ID: applicationID,
+	}).Limit(1)
+	if result.Error != nil {
+		return nil, fmt.Errorf("error finding application: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return nil, fmt.Errorf("application not found with ID %s", applicationID)
+	}
 
-// }
+	if err := app.ContainerSpecifications.Data().Validate(); err != nil {
+		return nil, fmt.Errorf("error while validating container specifications when scaling up: %w", err)
+	}
+
+	if domain.IsAtMaxCPULimit(*app.ContainerSpecifications.Data().CPULimit) && domain.IsAtMaxMemoryLimit(*app.ContainerSpecifications.Data().MemoryLimit) {
+		return nil, errors.NewInvalidApplicationCannotVerticallyScaleBecauseMaxSpecsError(
+			"application is already at maximum cpu and memory limits",
+		)
+	}
+	newContainerCPULimit := domain.NextCPULimit(*app.ContainerSpecifications.Data().CPULimit)
+	newContainerMemoryLimit := domain.NextMemoryLimit(*app.ContainerSpecifications.Data().MemoryLimit)
+
+	containerSpecs := datatypes.NewJSONType(domain.ApplicationContainerSpecifications{
+		CPULimit: &domain.ContainerCpuLimit{
+			Val:  newContainerCPULimit.Value,
+			Unit: newContainerCPULimit.Unit,
+		},
+		MemoryLimit: &domain.ContainerMemoryLimit{
+			Val:  newContainerMemoryLimit.Value,
+			Unit: newContainerMemoryLimit.Unit,
+		},
+	})
+	containerSpecsJSON, err := json.Marshal(containerSpecs)
+
+	if err != nil {
+		return nil, fmt.Errorf("error while marshalling container specifications: %w", err)
+	}
+
+	result = r.Database.Model(&app).Update("container_specifications", string(containerSpecsJSON))
+	if result.Error != nil {
+		return nil, fmt.Errorf("error while updating application: %w", result.Error)
+	}
+
+	return &app, nil
+}
 
 // // VerticalScaleDown scales down an application vertically
 // func (r GORMApplicationRepository) VerticalScaleDown(applicationID string) (*domain.Application, error) {

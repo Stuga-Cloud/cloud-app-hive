@@ -3,6 +3,7 @@ package schedulers
 import (
 	"cloud-app-hive/domain"
 	"cloud-app-hive/domain/commands"
+	"cloud-app-hive/domain/errors"
 	"cloud-app-hive/services"
 	"cloud-app-hive/use_cases/applications"
 	"fmt"
@@ -28,7 +29,7 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 		}
 		ticker := time.NewTicker(time.Duration(repeatInterval) * time.Second)
 
-		lastNotifiedMaxReplicasDatetimeByApplication := make(map[string]time.Time)
+		lastNotifiedCannotScaleMoreDatetimeByApplication := make(map[string]time.Time)
 
 		for {
 			select {
@@ -40,7 +41,7 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 					return
 				}
 				if len(foundApplications) == 0 {
-					// fmt.Println("No auto scaling applications found")
+					// fmt.Println("No auto-scaling applications found")
 					continue
 				}
 
@@ -94,65 +95,142 @@ func (scheduler AutoScaleApplicationsAndNotifyScheduler) Launch() {
 							compareActualUsageToAcceptedPercentageResults = append(compareActualUsageToAcceptedPercentageResults, compareActualUsageToAcceptedPercentageResult)
 						}
 
+						// jsonCompareActualUsageToAcceptedPercentageResults, err := json.Marshal(compareActualUsageToAcceptedPercentageResults)
+						// if err != nil {
+						// 	fmt.Println("error when try to marshal compareActualUsageToAcceptedPercentageResults :", err.Error())
+						// 	done <- true
+						// 	return
+						// }
+						// fmt.Println("compareActualUsageToAcceptedPercentageResults :", string(jsonCompareActualUsageToAcceptedPercentageResults))
+
+						// If both CPU and Memory usage are above the accepted percentage on all pods, then scale up the application
+						howMuchPodsExceedAcceptedPercentage := 0
 						for _, compareActualUsageToAcceptedPercentageResult := range compareActualUsageToAcceptedPercentageResults {
 							if compareActualUsageToAcceptedPercentageResult.OneOfTheUsageExceedsAcceptedPercentage() {
-								if application.ScalabilitySpecifications.Data().Replicas >= domain.MaxNumberOfReplicas {
-									fmt.Println("Auto application", application.Name, "has reached the maximum number of replicas")
+								howMuchPodsExceedAcceptedPercentage++
+							}
+						}
+						if howMuchPodsExceedAcceptedPercentage > 0 {
+							if application.ScalabilitySpecifications.Data().Replicas >= domain.MaxNumberOfReplicas {
+								fmt.Println("Auto application", application.Name, "has reached the maximum number of replicas")
 
-									if time.Since(lastNotifiedMaxReplicasDatetimeByApplication[application.ID]).Hours() < 4 {
-										fmt.Println("Auto application", application.Name, "has exceeded accepted percentages, but notification email was sent less than 4 hours ago")
-										return
-									}
-									success, err := scheduler.scalabilityNotificationService.SendApplicationCannotBeScaledUp(
-										application.AdministratorEmail,
-										application.Name,
-										application.Namespace.Name,
-										compareActualUsageToAcceptedPercentageResult,
-										application.ContainerSpecifications,
-										application.ScalabilitySpecifications.Data(),
-									)
-									if err != nil {
-										fmt.Println("error when try to send application cannot be scaled up more notification mail :", err.Error())
-										return
-									}
-									if success {
-										fmt.Println("Application", application.Name, "cannot be scaled up more, email sent to", application.AdministratorEmail)
-
-										lastNotifiedMaxReplicasDatetimeByApplication[application.ID] = time.Now()
-									} else {
-										fmt.Println("Application", application.Name, "cannot be scaled up more, but email not sent to", application.AdministratorEmail)
-									}
-									return
-								}
-								// 5. scale up/down the application if one of the usage exceeds the accepted percentage
-								_, err := scheduler.scaleApplicationUseCase.Execute(application.ID, commands.UpdateApplication{}, applications.HorizontalUpScaling)
+								// 3. scale up/down the application if one of the usage exceeds the accepted percentage
+								_, err := scheduler.scaleApplicationUseCase.Execute(application.ID, commands.UpdateApplication{}, applications.VerticalUpScaling)
 								if err != nil {
+									if _, ok := err.(*errors.InvalidApplicationCannotVerticallyScaleBecauseMaxSpecsError); ok {
+										fmt.Println("Auto application", application.Name, "has reached the maximum cpu/memory specs")
+
+										if time.Since(lastNotifiedCannotScaleMoreDatetimeByApplication[application.ID]).Hours() < 4 {
+											fmt.Println("Auto application", application.Name, "has exceeded accepted percentages, but max scaling notification email was sent less than 4 hours ago")
+											done <- true
+											return
+										}
+										success, err := scheduler.scalabilityNotificationService.SendCannotScaleApplicationVertically(
+											application.AdministratorEmail,
+											application.Name,
+											application.Namespace.Name,
+											compareActualUsageToAcceptedPercentageResults,
+											application.ContainerSpecifications.Data(),
+											application.ScalabilitySpecifications.Data())
+										if err != nil {
+											fmt.Println("error when try to send application cannot be scaled up more vertically notification mail :", err.Error())
+										}
+										if success {
+											fmt.Println("Application", application.Name, "cannot be scaled up more vertically, email sent to", application.AdministratorEmail)
+
+											lastNotifiedCannotScaleMoreDatetimeByApplication[application.ID] = time.Now()
+										} else {
+											fmt.Println("Application", application.Name, "cannot be scaled up more, but email not sent to", application.AdministratorEmail)
+										}
+
+										done <- true
+										return
+									}
 									fmt.Println("error when try to scale application during AutoScaleApplicationsAndNotifyScheduler :", err.Error())
+									done <- true
 									return
 								}
 
-								// 6. send email to the application administrator to notify him about the scaling
-								success, err := scheduler.scalabilityNotificationService.SendApplicationScaledUp(
+								// 4. send email to the application administrator to notify him about the scaling
+								success, err := scheduler.scalabilityNotificationService.SendApplicationVerticallyScaledUp(
 									application.AdministratorEmail,
 									application.Name,
 									application.Namespace.Name,
-									compareActualUsageToAcceptedPercentageResult,
-									application.ContainerSpecifications,
+									compareActualUsageToAcceptedPercentageResults,
+									application.ContainerSpecifications.Data(),
 									application.ScalabilitySpecifications.Data(),
 								)
 								if err != nil {
-									fmt.Println("Error when try to send application scalability notification mail during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
+									fmt.Println("Error when try to send application vertical scalability notification mail during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
+									done <- true
 									return
 								}
 								if success {
-									fmt.Println("Auto application", application.Name, "has exceeded accepted percentages scaled up, email sent to", application.AdministratorEmail)
+									fmt.Println("Auto application", application.Name, "has exceeded accepted percentages scaled up vertically, email sent to", application.AdministratorEmail)
 								} else {
-									fmt.Println("Auto application", application.Name, "has exceeded accepted percentages scaled up, but email not sent to", application.AdministratorEmail)
+									fmt.Println("Auto application", application.Name, "has exceeded accepted percentages scaled up vertically, but email not sent to", application.AdministratorEmail)
 								}
+								done <- true
+								return
+								// }
+								// }
+
+								// if time.Since(lastNotifiedMaxReplicasDatetimeByApplication[application.ID]).Hours() < 4 {
+								// 	fmt.Println("Auto application", application.Name, "has exceeded accepted percentages, but notification email was sent less than 4 hours ago")
+								// 	return
+								// }
+								// success, err = scheduler.scalabilityNotificationService.SendApplicationCannotBeScaledUp(
+								// 	application.AdministratorEmail,
+								// 	application.Name,
+								// 	application.Namespace.Name,
+								// 	compareActualUsageToAcceptedPercentageResults,
+								// 	application.ContainerSpecifications.Data(),
+								// 	application.ScalabilitySpecifications.Data(),
+								// )
+								// if err != nil {
+								// 	fmt.Println("error when try to send application cannot be scaled up more notification mail :", err.Error())
+								// 	return
+								// }
+								// if success {
+								// 	fmt.Println("Application", application.Name, "cannot be scaled up more, email sent to", application.AdministratorEmail)
+
+								// 	lastNotifiedMaxReplicasDatetimeByApplication[application.ID] = time.Now()
+								// } else {
+								// 	fmt.Println("Application", application.Name, "cannot be scaled up more, but email not sent to", application.AdministratorEmail)
+								// }
+								// return
 							}
-							// else {
-							// 	fmt.Println("Application", application.Name, "has not exceeded accepted percentages")
-							// }
+
+							// 5. scale up/down horizontally the application if one of the usage exceeds the accepted percentage
+							_, err := scheduler.scaleApplicationUseCase.Execute(application.ID, commands.UpdateApplication{}, applications.HorizontalUpScaling)
+							if err != nil {
+								fmt.Println("error when try to scale horizontally application during AutoScaleApplicationsAndNotifyScheduler :", err.Error())
+								done <- true
+								return
+							}
+
+							// 6. send email to the application administrator to notify him about the scaling
+							success, err := scheduler.scalabilityNotificationService.SendApplicationHorizontallyScaledUp(
+								application.AdministratorEmail,
+								application.Name,
+								application.Namespace.Name,
+								compareActualUsageToAcceptedPercentageResults,
+								application.ContainerSpecifications.Data(),
+								application.ScalabilitySpecifications.Data(),
+							)
+							if err != nil {
+								fmt.Println("Error when try to send application horizontal scalability notification mail during NotifyApplicationScalingRecommendationScheduler : " + err.Error())
+								done <- true
+								return
+							}
+							if success {
+								fmt.Println("Auto application", application.Name, "has exceeded accepted percentages scaled up horizontally, email sent to", application.AdministratorEmail)
+							} else {
+								fmt.Println("Auto application", application.Name, "has exceeded accepted percentages scaled up horizontally, but email not sent to", application.AdministratorEmail)
+							}
+
+							done <- true
+							return
 						}
 
 						done <- true
