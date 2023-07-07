@@ -154,7 +154,6 @@ func DivideFloat64s(a float64, b float64) float64 {
 func ComputeNodesUsagesFromMetricsAndCapacities(nodeMetrics []NodeMetrics, nodeCapacities []NodeCapacities) ([]NodeComputedUsage, error) {
 	if len(nodeMetrics) != len(nodeCapacities) {
 		fmt.Println("Mismatched number of metrics and capacities : ", len(nodeMetrics), len(nodeCapacities))
-		return nil, fmt.Errorf("mismatched number of metrics and capacities")
 	}
 
 	var nodeComputedUsages []NodeComputedUsage
@@ -197,38 +196,6 @@ func ComputeNodesUsagesFromMetricsAndCapacities(nodeMetrics []NodeMetrics, nodeC
 	}
 
 	return nodeComputedUsages, nil
-}
-
-func doesHalfNodesExceedCPUOrMemoryUsage(nodeMetrics []NodeMetrics, nodeCapacities []NodeCapacities) bool {
-	if len(nodeMetrics) != len(nodeCapacities) {
-		fmt.Println("Mismatched number of metrics and capacities.")
-		return false
-	}
-
-	threshold := 0.8
-	exceedingNodes := 0
-
-	for i := 0; i < len(nodeMetrics); i++ {
-		cpuUsage, _ := strconv.Atoi(nodeMetrics[i].CPUUsage)
-		cpuLimit, _ := strconv.Atoi(nodeCapacities[i].CPULimit)
-		memoryUsage, _ := strconv.Atoi(nodeMetrics[i].MemoryUsage)
-		memoryLimit, _ := strconv.Atoi(nodeCapacities[i].MemoryLimit)
-
-		cpuUsagePercentage := float64(cpuUsage) / float64(cpuLimit)
-		memoryUsagePercentage := float64(memoryUsage) / float64(memoryLimit)
-
-		if cpuUsagePercentage >= threshold || memoryUsagePercentage >= threshold {
-			exceedingNodes++
-		}
-	}
-
-	halfNodes := len(nodeMetrics) / 2
-
-	if exceedingNodes >= halfNodes {
-		return true
-	}
-
-	return false
 }
 
 func DoesPartOfNodesExceedCPUOrMemoryUsage(

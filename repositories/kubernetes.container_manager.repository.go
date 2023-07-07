@@ -7,6 +7,7 @@ import (
 	"cloud-app-hive/domain/commands"
 	"encoding/base64"
 	"encoding/json"
+	"sort"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1021,21 +1022,20 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationStatu
 	}
 
 	// Order the deploymentConditions slice if there are different last update times
-	// isDifferentLastUpdateTimes := false
-	// for i := 0; i < len(deploymentConditions)-1; i++ {
-	// 	if deploymentConditions[i].LastUpdateTime != deploymentConditions[i+1].LastUpdateTime {
-	// 		isDifferentLastUpdateTimes = true
-	// 		break
-	// 	}
-	// }
-	// if len(deploymentConditions) > 1 && isDifferentLastUpdateTimes {
-	// 	sort.Slice(deploymentConditions, func(i, j int) bool {
-	// 		if deploymentConditions[i].LastUpdateTime == deploymentConditions[j].LastUpdateTime {
-	// 			return deploymentConditions[i].LastTransitionTime > deploymentConditions[j].LastTransitionTime
-	// 		}
-	// 		return deploymentConditions[i].LastUpdateTime > deploymentConditions[j].LastUpdateTime
-	// 	})
-	// }
+	if len(deploymentConditions) > 1 {
+		isDifferentLastUpdateTimes := false
+		for i := 0; i < len(deploymentConditions)-1; i++ {
+			if deploymentConditions[i].LastTransitionTime != deploymentConditions[i+1].LastTransitionTime {
+				isDifferentLastUpdateTimes = true
+				break
+			}
+		}
+		if isDifferentLastUpdateTimes {
+			sort.Slice(deploymentConditions, func(i, j int) bool {
+				return deploymentConditions[i].LastTransitionTime >= deploymentConditions[j].LastTransitionTime
+			})
+		}
+	}
 
 	// REVERSE the deploymentConditions slice
 	//for i := len(deploymentConditions)/2 - 1; i >= 0; i-- {
@@ -1141,6 +1141,13 @@ func (containerManager KubernetesContainerManagerRepository) GetClusterMetrics()
 			ReadableEphemeralStorage: domain.ConvertK8sResourceToReadableHumanValueAndUnit(node.Status.Capacity.StorageEphemeral().String()),
 		})
 	}
+
+	// jsonedCapacities, _ := json.Marshal(nodeCapacities)
+	// jsonedMetrics, _ := json.Marshal(nodeMetrics)
+	// fmt.Println("Capacities : ")
+	// fmt.Println(string(jsonedCapacities))
+	// fmt.Println("Metrics : ")
+	// fmt.Println(string(jsonedMetrics))
 
 	nodesComputedUsages, err := domain.ComputeNodesUsagesFromMetricsAndCapacities(
 		nodeMetrics, nodeCapacities,
