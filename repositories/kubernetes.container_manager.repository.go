@@ -763,8 +763,7 @@ func (containerManager KubernetesContainerManagerRepository) GetApplicationLogs(
 
 	logs := make([]domain.ApplicationLogs, 0)
 	podLogOptions := v1.PodLogOptions{
-		// Follow: true,
-		// Timestamps: true,
+		Timestamps: true,
 	}
 
 	for _, pod := range podList.Items {
